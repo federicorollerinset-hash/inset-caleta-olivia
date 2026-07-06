@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal Estudiantil — Inset Caleta Olivia</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f0f4f9; --bg2: #ffffff; --bg3: #e8eef6;
+  --border: #d0d9e8;
+  --accent: #1a4f8a; --accent2: #b07d10;
+  --success: #1a7a52; --danger: #b83232; --warning: #b06a0a;
+  --text: #0f1a2e; --text2: #3a4a62; --text3: #7a8aa0;
+  --mono: 'Inter', sans-serif; --sans: 'Inter', sans-serif;
+  --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; min-height: 100vh; }
+
+/* ── PANTALLA DE AUTH ─────────────────────────── */
+.auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.auth-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 40px 36px; width: 100%; max-width: 420px; box-shadow: 0 4px 24px rgba(15,26,46,0.08); }
+.auth-logo { text-align: center; margin-bottom: 28px; }
+.auth-logo-text { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; }
+.auth-logo h1 { font-size: 22px; font-weight: 500; margin-top: 6px; color: var(--text); }
+.auth-logo p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+/* ── PORTAL PRINCIPAL ────────────────────────── */
+.portal-wrap { display: none; min-height: 100vh; flex-direction: column; }
+.portal-header { background: var(--accent); color: white; padding: 0 24px; display: flex; align-items: center; gap: 16px; height: 56px; }
+.portal-header-title { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; flex: 1; }
+.portal-header-user { font-size: 13px; opacity: 0.85; }
+.portal-header-btn { background: rgba(255,255,255,0.15); border: none; color: white; font-size: 12px; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-family: var(--sans); }
+.portal-header-btn:hover { background: rgba(255,255,255,0.25); }
+.portal-nav { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; gap: 2px; overflow-x: auto; }
+.nav-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 14px 16px; font-size: 13px; color: var(--text2); cursor: pointer; font-family: var(--sans); white-space: nowrap; transition: all 0.15s; }
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+.portal-content { padding: 28px 24px; max-width: 900px; width: 100%; margin: 0 auto; }
+
+/* ── FORM ────────────────────────────────────── */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 6px; letter-spacing: 0.01em; }
+.form-group input { width: 100%; padding: 10px 13px; border: 1px solid var(--border); border-radius: 7px; font-size: 14px; font-family: var(--sans); color: var(--text); background: var(--bg); transition: border-color 0.15s; }
+.form-group input:focus { outline: none; border-color: var(--accent); background: white; }
+.form-group small { font-size: 11px; color: var(--text3); margin-top: 5px; display: block; }
+
+/* ── BOTONES ─────────────────────────────────── */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 18px; border-radius: 7px; font-size: 14px; font-family: var(--sans); font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; }
+.btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-primary:hover { background: #153e6e; }
+.btn-success { background: var(--success); color: white; border-color: var(--success); }
+.btn-success:hover { background: #145f3e; }
+.btn-ghost { background: none; border-color: var(--border); color: var(--text2); }
+.btn-ghost:hover { background: var(--bg3); color: var(--text); }
+.btn-link { background: none; border: none; color: var(--accent); font-size: 13px; padding: 0; cursor: pointer; font-family: var(--sans); }
+.btn-link:hover { text-decoration: underline; }
+.btn-full { width: 100%; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── CARD ────────────────────────────────────── */
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px; }
+.card-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 14px; letter-spacing: 0.01em; }
+
+/* ── STATS ────────────────────────────────────── */
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+.stat-box { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.stat-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+.stat-val { font-size: 26px; font-weight: 600; line-height: 1; }
+
+/* ── BADGES ──────────────────────────────────── */
+.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; }
+.badge-success { background: rgba(26,122,82,0.1); color: var(--success); }
+.badge-info    { background: rgba(26,79,138,0.1); color: var(--accent); }
+.badge-warning { background: rgba(176,106,10,0.1); color: var(--warning); }
+.badge-danger  { background: rgba(184,50,50,0.1); color: var(--danger); }
+.badge-neutral { background: var(--bg3); color: var(--text3); }
+
+/* ── MATERIA ROW ──────────────────────────────── */
+.mat-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(208,217,232,0.6); }
+.mat-row:last-child { border-bottom: none; }
+.mat-num { font-size: 12px; font-weight: 600; color: var(--text3); width: 28px; flex-shrink: 0; }
+.mat-name { flex: 1; font-size: 14px; color: var(--text); font-weight: 500; }
+.mat-detail { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.section-head { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em; padding: 12px 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+
+/* ── TOAST ───────────────────────────────────── */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--text); color: white; padding: 10px 20px; border-radius: 8px; font-size: 13px; opacity: 0; transition: all 0.3s; z-index: 9999; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── LOADING ─────────────────────────────────── */
+.loading-overlay { position: fixed; inset: 0; background: rgba(240,244,249,0.9); display: flex; align-items: center; justify-content: center; z-index: 9998; font-family: var(--mono); font-size: 13px; color: var(--accent); gap: 12px; }
+
+/* ── ALERTA ──────────────────────────────────── */
+.alert { border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; font-size: 13px; display: flex; align-items: flex-start; gap: 10px; }
+.alert-warning { background: rgba(176,106,10,0.07); border: 1px solid rgba(176,106,10,0.2); color: var(--warning); }
+.alert-info    { background: rgba(26,79,138,0.06); border: 1px solid rgba(26,79,138,0.15); color: var(--accent); }
+.alert-danger  { background: rgba(184,50,50,0.07); border: 1px solid rgba(184,50,50,0.2); color: var(--danger); }
+
+/* ── CHECK SELECTOR ─────────────────────────── */
+.sel-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 7px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; }
+.sel-row:hover { border-color: var(--accent); }
+.sel-row.selected { border-color: var(--accent); background: rgba(26,79,138,0.04); }
+.sel-check { width: 18px; height: 18px; border: 1.5px solid var(--text3); border-radius: 4px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: all 0.15s; }
+.sel-row.selected .sel-check { background: var(--accent); border-color: var(--accent); color: white; }
+
+/* ── CONSTANCIA BTN ─────────────────────────── */
+.const-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; background: var(--bg2); width: 100%; text-align: left; font-family: var(--sans); transition: border-color 0.15s; }
+.const-btn:hover { border-color: var(--accent); }
+
+@media (max-width: 600px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .auth-box { padding: 28px 20px; }
+  .portal-content { padding: 14px; }
+  .portal-header { padding: 0 14px; height: 52px; }
+  .portal-header-title { font-size: 10px; }
+  .portal-header-user { font-size: 12px; max-width: 110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .nav-tab { padding: 12px 10px; font-size: 12px; }
+  .card { padding: 14px 14px; }
+  .stat-val { font-size: 22px; }
+  .btn { padding: 11px 16px; font-size: 14px; min-height: 44px; }
+  .btn-full { width: 100%; }
+  .mat-name { font-size: 13px; }
+  .sel-row { padding: 14px; }
+  .sel-check { width: 22px; height: 22px; }
+  .const-btn { padding: 14px; }
+  /* Mejor lectura en móvil */
+  body { font-size: 15px; }
+  .form-group input, .form-group select { font-size: 16px; min-height: 44px; } /* evita zoom en iOS */
+}
+@media (max-width: 380px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .portal-content { padding: 10px; }
+}
+@media (max-width: 600px) {
+  .inicio-grid-res { grid-template-columns: 1fr !important; }
+  #tab-constancias .const-btn-grid { grid-template-columns: 1fr !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     PANTALLAS DE AUTENTICACIÓN
+════════════════════════════════════════════════ -->
+<div id="auth-wrap" class="auth-wrap">
+
+  <!-- LOGIN -->
+  <div id="screen-login" class="auth-box">
+    <div class="auth-logo">
+      <div class="auth-logo-text">Inset Caleta Olivia</div>
+      <h1>Portal estudiantil</h1>
+      <p>Ingresá con tu DNI, tecnicatura y contraseña</p>
+    </div>
+    <div class="form-group">
+      <label>DNI</label>
+      <input type="text" id="login-dni" placeholder="Ej: 34075705" autocomplete="username"
+        onkeydown="if(event.key==='Enter') doLogin()">
+      <small>Sin puntos ni espacios. La contraseña inicial es tu DNI.</small>
+    </div>
+    <div class="form-group">
+      <label>Tecnicatura</label>
+      <select id="login-carrera" style="width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:7px;font-size:14px;font-family:var(--sans);color:var(--text);background:var(--bg);transition:border-color 0.15s;">
+        <option value="">— Seleccioná tu tecnicatura —</option>
+        <option value="GRE">GRE — Generación y Redes Eléctricas</option>
+        <option value="MI">MI — Mantenimiento Industrial</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <div id="login-error" style="display:none" class="alert alert-danger" style="margin-bottom:14px;"></div>
+    <button class="btn btn-primary btn-full" onclick="doLogin()" id="login-btn">Ingresar</button>
+    <div style="text-align:center;margin-top:14px;">
+      <button class="btn-link" onclick="showScreen('screen-recuperar')">¿Olvidaste tu contraseña?</button>
+    </div>
+  </div>
+
+  <!-- PRIMER INGRESO: completar mail y nueva contraseña -->
+  <div id="screen-primer-ingreso" class="auth-box" style="display:none;">
+    <div class="auth-logo">
+      <div class="auth-logo-text">Inset Caleta Olivia</div>
+      <h1>Configurá tu cuenta</h1>
+      <p>Primera vez que ingresás. Completá tu mail y elegí una contraseña.</p>
+    </div>
+    <div class="alert alert-info">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Tu contraseña provisoria era tu DNI. Ahora elegí una contraseña personal.
+    </div>
+    <div class="form-group">
+      <label>Tu correo electrónico</label>
+      <input type="email" id="pi-email" placeholder="ejemplo@gmail.com" autocomplete="email">
+      <small>Lo usarás si alguna vez necesitás recuperar tu contraseña.</small>
+    </div>
+    <div class="form-group">
+      <label>Nueva contraseña</label>
+      <input type="password" id="pi-pass1" placeholder="Mínimo 6 caracteres">
+    </div>
+    <div class="form-group">
+      <label>Repetir contraseña</label>
+      <input type="password" id="pi-pass2" placeholder="Repetí la contraseña"
+        onkeydown="if(event.key==='Enter') doPrimerIngreso()">
+    </div>
+    <div id="pi-error" style="display:none" class="alert alert-danger"></div>
+    <button class="btn btn-success btn-full" onclick="doPrimerIngreso()">Guardar y continuar</button>
+  </div>
+
+  <!-- RECUPERAR CONTRASEÑA -->
+  <div id="screen-recuperar" class="auth-box" style="display:none;">
+    <div class="auth-logo">
+      <div class="auth-logo-text">Inset Caleta Olivia</div>
+      <h1>Recuperar contraseña</h1>
+      <p>Ingresá tu DNI y tecnicatura para recuperar el acceso.</p>
+    </div>
+    <div class="form-group">
+      <label>DNI</label>
+      <input type="text" id="rec-dni" placeholder="Ej: 34075705"
+        onkeydown="if(event.key==='Enter') doRecuperar()">
+    </div>
+    <div class="form-group">
+      <label>Tecnicatura</label>
+      <select id="rec-carrera" style="width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:7px;font-size:14px;font-family:var(--sans);color:var(--text);background:var(--bg);">
+        <option value="">— Seleccioná tu tecnicatura —</option>
+        <option value="GRE">GRE — Generación y Redes Eléctricas</option>
+        <option value="MI">MI — Mantenimiento Industrial</option>
+      </select>
+    </div>
+    <div id="rec-msg" style="display:none" class="alert"></div>
+    <button class="btn btn-primary btn-full" onclick="doRecuperar()">Enviar nueva contraseña</button>
+    <div style="margin-top:16px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;text-align:center;">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">¿No tenés mail registrado? Avisale a secretaría y ellos te resetean la clave.</div>
+      <button class="btn btn-ghost btn-full" onclick="solicitarReseteo()" id="btn-solicitar-reseteo">🔑 Solicitar reseteo a secretaría</button>
+      <div id="reseteo-enviado" style="display:none;margin-top:10px;font-size:13px;color:var(--success);font-weight:500;">✓ Solicitud enviada. Pasate por secretaría o esperá que te contacten.</div>
+    </div>
+    <div style="text-align:center;margin-top:14px;">
+      <button class="btn-link" onclick="showScreen('screen-login')">← Volver al inicio</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PORTAL PRINCIPAL (una vez logueado)
+════════════════════════════════════════════════ -->
+<div id="portal-wrap" class="portal-wrap">
+
+  <div class="portal-header">
+    <div class="portal-header-title">Portal estudiantil · Inset Caleta Olivia</div>
+    <div class="portal-header-user" id="portal-nombre-header">—</div>
+    <button class="portal-header-btn" onclick="cerrarSesion()">Cerrar sesión</button>
+  </div>
+
+  <div class="portal-nav">
+    <button class="nav-tab active" onclick="showTab('tab-inicio',this)">Inicio</button>
+    <button class="nav-tab" onclick="showTab('tab-trayectoria',this)">Mi trayectoria</button>
+    <button class="nav-tab" onclick="showTab('tab-historial',this)">Historial académico</button>
+    <button class="nav-tab" onclick="showTab('tab-legajo-est',this);cargarLegajoPortal()">Mi legajo</button>
+    <button class="nav-tab" onclick="showTab('tab-fechas',this)">Fechas importantes</button>
+    <button class="nav-tab" onclick="showTab('tab-novedades',this)">Novedades</button>
+    <button class="nav-tab" onclick="showTab('tab-constancias',this)">Constancias</button>
+    <button class="nav-tab" onclick="showTab('tab-mesa',this)">Inscripción a mesa</button>
+    <button class="nav-tab" onclick="showTab('tab-cursado',this)">Inscripción a cursado</button>
+    <button class="nav-tab" onclick="showTab('tab-cuenta',this)">Mi cuenta</button>
+  </div>
+
+  <div class="portal-content">
+
+    <!-- INICIO -->
+    <div id="tab-inicio" class="tab-pane">
+      <div id="inicio-bienvenida" style="margin-bottom:20px;">
+        <h2 style="font-size:20px;font-weight:500;" id="inicio-nombre">—</h2>
+        <p style="font-size:13px;color:var(--text2);margin-top:4px;font-family:var(--mono);" id="inicio-carrera">—</p>
+      </div>
+      <div class="stats-grid" id="inicio-stats"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" id="inicio-grid" class="inicio-grid-res">
+        <div>
+          <div class="card">
+            <div class="card-title">Próximas fechas</div>
+            <div id="inicio-fechas"><p style="font-size:13px;color:var(--text3);">Cargando...</p></div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">Últimas novedades</div>
+            <div id="inicio-novedades"><p style="font-size:13px;color:var(--text3);">Cargando...</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MI TRAYECTORIA -->
+    <div id="tab-trayectoria" class="tab-pane" style="display:none;">
+      <div id="tray-content"><p style="color:var(--text3);">Cargando...</p></div>
+    </div>
+
+    <!-- HISTORIAL ACADÉMICO -->
+    <div id="tab-historial" class="tab-pane" style="display:none;">
+      <div class="stats-grid" id="hist-stats"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="font-size:13px;font-weight:500;flex:1;">Plan de estudios</span>
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('todos',this)">Todas</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('aprobada',this)">Aprobadas</button>
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('regular',this)">Regulares</button>
+      </div>
+      <div id="hist-lista"></div>
+    </div>
+
+    <!-- MI LEGAJO -->
+    <div id="tab-legajo-est" class="tab-pane" style="display:none;">
+      <div id="legajo-portal-cont">
+        <p style="color:var(--text3);">Cargando...</p>
+      </div>
+    </div>
+
+    <!-- FECHAS IMPORTANTES -->
+    <div id="tab-fechas" class="tab-pane" style="display:none;">
+      <div id="fechas-content"><p style="color:var(--text3);">Cargando...</p></div>
+    </div>
+
+    <!-- NOVEDADES -->
+    <div id="tab-novedades" class="tab-pane" style="display:none;">
+      <div id="novedades-content"><p style="color:var(--text3);">Cargando...</p></div>
+    </div>
+
+    <!-- CONSTANCIAS -->
+    <div id="tab-constancias" class="tab-pane" style="display:none;">
+      <div class="card">
+        <div class="card-title">Solicitar constancia</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Seleccioná el tipo. El tiempo de emisión es de 48 a 72 hs hábiles.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" class="const-btn-grid">
+          <button class="const-btn" onclick="solicitarConstancia('alumno_regular')">
+            <span style="font-size:13px;font-weight:500;">Alumno/a regular</span>
+            <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="const-btn" onclick="solicitarConstancia('inscripcion')">
+            <span style="font-size:13px;font-weight:500;">Constancia de inscripción</span>
+            <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="const-btn" onclick="solicitarConstancia('materias_aprobadas')">
+            <span style="font-size:13px;font-weight:500;">Materias aprobadas</span>
+            <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="const-btn" onclick="abrirConstanciaEscolaridad()">
+            <span style="font-size:13px;font-weight:500;">Certificado de escolaridad</span>
+            <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="const-btn" onclick="solicitarConstancia('otra')">
+            <span style="font-size:13px;font-weight:500;">Otra (especificar)</span>
+            <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+
+        <!-- FORMULARIO CERTIFICADO DE ESCOLARIDAD -->
+        <div id="form-escolaridad" style="display:none;margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:18px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:14px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;">Datos adicionales — Certificado de escolaridad</div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Edad</label>
+            <input type="number" id="esc-edad" placeholder="Ej: 22" min="15" max="99" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+          </div>
+          <div style="font-size:12px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;margin:14px 0 10px;">Datos del padre / madre / tutor</div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Apellido y nombre</label>
+            <input type="text" id="esc-tutor-nombre" placeholder="Ej: García, Roberto" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>DNI del padre/madre/tutor</label>
+            <input type="text" id="esc-tutor-dni" placeholder="Ej: 25123456" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+          </div>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label>¿Dónde se presenta el certificado?</label>
+            <input type="text" id="esc-destino" placeholder="Ej: Asignación Universal, Trabajo, Juzgado..." style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-primary" onclick="enviarEscolaridad()">Solicitar certificado</button>
+            <button class="btn btn-ghost" onclick="cerrarEscolaridad()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Mis solicitudes</div>
+        <div id="mis-constancias"><p style="color:var(--text3);font-size:13px;">Cargando...</p></div>
+      </div>
+    </div>
+
+    <!-- INSCRIPCIÓN A MESA -->
+    <div id="tab-mesa" class="tab-pane" style="display:none;">
+      <div id="mesa-content"><p style="color:var(--text3);">Cargando...</p></div>
+    </div>
+
+    <!-- INSCRIPCIÓN A CURSADO -->
+    <div id="tab-cursado" class="tab-pane" style="display:none;">
+      <div id="cursado-content"><p style="color:var(--text3);">Cargando...</p></div>
+    </div>
+
+    <!-- MI CUENTA -->
+    <div id="tab-cuenta" class="tab-pane" style="display:none;">
+      <div class="card" style="max-width:480px;">
+        <div class="card-title">Cambiar contraseña</div>
+        <div class="form-group">
+          <label>Contraseña actual</label>
+          <input type="password" id="cc-actual" placeholder="Tu contraseña actual">
+        </div>
+        <div class="form-group">
+          <label>Nueva contraseña</label>
+          <input type="password" id="cc-nueva" placeholder="Mínimo 6 caracteres">
+        </div>
+        <div class="form-group">
+          <label>Repetir nueva contraseña</label>
+          <input type="password" id="cc-repetir" placeholder="Repetí la nueva contraseña">
+        </div>
+        <div id="cc-msg" style="display:none" class="alert"></div>
+        <button class="btn btn-primary" onclick="cambiarPassword()">Actualizar contraseña</button>
+      </div>
+      <div class="card" style="max-width:480px;">
+        <div class="card-title">Mi correo electrónico</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">El mail registrado se usa para recuperar tu contraseña.</p>
+        <div class="form-group">
+          <label>Correo electrónico</label>
+          <input type="email" id="cc-email" placeholder="ejemplo@gmail.com">
+        </div>
+        <div id="email-msg" style="display:none" class="alert"></div>
+        <button class="btn btn-ghost" onclick="actualizarEmail()">Actualizar mail</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+const SB_URL = 'https://jqjkhgynbjlxdfituplx.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxamtoZ3luYmpseGRmaXR1cGx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDUwMzkxMSwiZXhwIjoyMDk2MDc5OTExfQ.Yx63xZCpkMz7yf4_4ftiri7Lp3oK8tHBpquDQ6pFRKA';
+const SB_H = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+// ─── CALENDARIO ACADÉMICO 2026 (InSET) ─────────────────────────────
+const CALENDARIO_2026 = [
+  {fecha:'2026-02-11',fechaFin:'2026-02-27',titulo:'Inscripción e inicio de recepción de documentación de ingresantes',tipo:'inscripcion_cursado',importante:true},
+  {fecha:'2026-02-16',fechaFin:'2026-02-20',titulo:'Inscripción a Exámenes Finales — 1ro y 2do llamado',tipo:'inscripcion_mesa',importante:true},
+  {fecha:'2026-02-23',fechaFin:'2026-02-27',titulo:'Exámenes Finales — Primer llamado',tipo:'mesa_examen',importante:true},
+  {fecha:'2026-03-02',fechaFin:'2026-03-06',titulo:'Exámenes Finales — Segundo llamado',tipo:'mesa_examen',importante:true},
+  {fecha:'2026-03-02',fechaFin:'2026-03-06',titulo:'Tutoría y Examen de Ingreso Art. 7mo (Ley 24.521)',tipo:'inscripcion_cursado',importante:true},
+  {fecha:'2026-03-09',fechaFin:'2026-03-10',titulo:'Inscripción a materias del 1er cuatrimestre y Anuales',tipo:'inscripcion_cursado',importante:true},
+  {fecha:'2026-03-11',titulo:'Finalización recepción documentación de ingresantes',tipo:'',importante:false},
+  {fecha:'2026-03-16',titulo:'Inicio del 1er Cuatrimestre',tipo:'inicio_cuatrimestre',importante:true},
+  {fecha:'2026-03-16',fechaFin:'2026-03-27',titulo:'Primer período de solicitud de equivalencias',tipo:'',importante:false},
+  {fecha:'2026-04-16',fechaFin:'2026-04-17',titulo:'Inscripción a Mesas de Exámenes Finales Extraordinarias',tipo:'inscripcion_mesa',importante:true},
+  {fecha:'2026-04-20',fechaFin:'2026-04-24',titulo:'Mesas de Exámenes Finales Extraordinarias',tipo:'mesa_examen',importante:true},
+  {fecha:'2026-06-26',titulo:'Finalización del 1er Cuatrimestre',tipo:'fin_cuatrimestre',importante:true},
+  {fecha:'2026-06-29',fechaFin:'2026-06-30',titulo:'Inscripción a Mesas de Exámenes Finales Ordinarios — 1ro y 2do llamado',tipo:'inscripcion_mesa',importante:true},
+  {fecha:'2026-07-06',fechaFin:'2026-07-10',titulo:'Mesas de Exámenes Finales — 1er llamado',tipo:'mesa_examen',importante:true},
+  {fecha:'2026-07-13',fechaFin:'2026-07-24',titulo:'Receso Funcional',tipo:'',importante:false},
+  {fecha:'2026-07-27',fechaFin:'2026-07-31',titulo:'Mesas de Exámenes Finales — 2do llamado',tipo:'mesa_examen',importante:true},
+  {fecha:'2026-08-03',titulo:'Inscripción a materias del 2do cuatrimestre',tipo:'inscripcion_cursado',importante:true},
+  {fecha:'2026-08-10',titulo:'Inicio del 2do Cuatrimestre',tipo:'inicio_cuatrimestre',importante:true},
+  {fecha:'2026-09-24',fechaFin:'2026-09-25',titulo:'Inscripción a Mesas de Exámenes Finales Extraordinarias',tipo:'inscripcion_mesa',importante:true},
+  {fecha:'2026-09-28',fechaFin:'2026-09-30',titulo:'Mesas de Exámenes Finales Extraordinarias',tipo:'mesa_examen',importante:true},
+  {fecha:'2026-11-27',titulo:'Finalización del 2do Cuatrimestre',tipo:'fin_cuatrimestre',importante:true},
+  {fecha:'2026-11-30',titulo:'Inscripción a Mesas de Exámenes Finales Ordinarios — 1ro y 2do llamado',tipo:'inscripcion_mesa',importante:true},
+  {fecha:'2026-12-02',fechaFin:'2026-12-10',titulo:'Mesas de Exámenes Finales — 1er llamado',tipo:'mesa_examen',importante:true},
+  {fecha:'2026-12-11',fechaFin:'2026-12-17',titulo:'Mesas de Exámenes Finales — 2do llamado',tipo:'mesa_examen',importante:true},
+  {fecha:'2026-12-18',titulo:'Último día de afectación',tipo:'',importante:false},
+];
+
+// ─── FORMSPREE ────────────────────────────────────────────────────
+const FORMSPREE_URL = 'https://formspree.io/f/mwvjqpaj';
+
+async function enviarNotificacion(tipo, detalle) {
+  const est = sesion?.estudiante;
+  if (!est) return;
+  const tipoLabel = {
+    alumno_regular:     'Constancia alumno/a regular',
+    inscripcion:        'Constancia de inscripción',
+    materias_aprobadas: 'Constancia materias aprobadas',
+    escolaridad:        'Certificado de escolaridad',
+    inscripcion_mesa:   'Inscripción a mesa de examen',
+    reseteo_clave:      'Pedido de reseteo de clave',
+    otra:               'Constancia (otra)',
+  };
+  const asunto = `Nuevo pedido a Plataformainset CO — ${tipoLabel[tipo] || tipo}`;
+  try {
+    await fetch(FORMSPREE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        _subject: asunto,
+        nombre:   est.nombre,
+        carrera:  est.carrera === 'GRE' ? 'Generación y Redes Eléctricas' : 'Mantenimiento Industrial',
+        tipo:     tipoLabel[tipo] || tipo,
+        detalle:  detalle || '—',
+        fecha:    new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+      })
+    });
+  } catch(e) {
+    console.warn('Formspree error:', e);
+  }
+}
+
+async function guardarSolicitud(tipo, detalle) {
+  // Solo guarda en solicitudes_portal si NO es una constancia (que ya va a la tabla constancias)
+  // y siempre manda el mail por Formspree
+  if (!tipo.startsWith('Constancia') && tipo !== 'Constancia de escolaridad') {
+    try {
+      await sbPost('solicitudes_portal', {
+        estudiante_id: sesion.estudiante.id,
+        tipo,
+        detalle: detalle || '',
+        leida: false
+      });
+    } catch(e) { console.warn('No se pudo guardar solicitud en Supabase:', e.message); }
+  }
+  await enviarNotificacion(tipo, detalle);
+}
+
+
+async function sbGet(tabla, params) {
+  const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${params}`, { headers: SB_H });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function sbPost(tabla, data) {
+  const r = await fetch(`${SB_URL}/rest/v1/${tabla}`, { method:'POST', headers: SB_H, body: JSON.stringify(data) });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function sbPatch(tabla, filtro, data) {
+  const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${filtro}`, { method:'PATCH', headers: SB_H, body: JSON.stringify(data) });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ─── PLAN DE ESTUDIOS ─────────────────────────────────────────────
+const PLAN_COMUN = [
+  { mod:1,  nombre:"Liderazgo, Motivación y Comunicación Efectiva",            corr:[] },
+  { mod:2,  nombre:"Gestión de la Calidad, Emprendimiento y Comercialización",  corr:[] },
+  { mod:3,  nombre:"Máquinas Eléctricas",                                       corr:[] },
+  { mod:4,  nombre:"Dispositivos e Instalaciones Eléctricas",                   corr:[] },
+  { mod:5,  nombre:"Instrumentación y Control de Procesos",                     corr:[] },
+  { mod:6,  nombre:"EDI Montaje, Operación y Mant. de Instalaciones Eléctricas",corr:[] },
+  { mod:7,  nombre:"Medición y Análisis de Sistemas Eléctricos",                corr:[] },
+  { mod:8,  nombre:"Representación Gráfica",                                    corr:[] },
+  { mod:9,  nombre:"Relaciones Laborales y Orientación Profesional",            corr:[] },
+  { mod:10, nombre:"EDI Proyecto y Planificación de Instalaciones Eléctricas",  corr:[] },
+  { mod:11, nombre:"Prácticas Profesionalizante Inicial",                        corr:[] },
+];
+const PLAN_GRE = [
+  { mod:12, nombre:"Inglés Técnico",                                         corr:[] },
+  { mod:13, nombre:"Mantenimiento Industrial 2",                             corr:[] },
+  { mod:14, nombre:"Gestión de la Energía",                                  corr:[] },
+  { mod:15, nombre:"Centrales Térmicas, Hidráulicas y Eólicas",              corr:[] },
+  { mod:16, nombre:"Transporte y Distribución en Redes Eléctricas",          corr:[4,5] },
+  { mod:17, nombre:"Operación de Sistemas de Generación Eléctrica",          corr:[3,15] },
+  { mod:18, nombre:"Operación de Sistemas de Transmisión Eléctrica",         corr:[3,16] },
+  { mod:19, nombre:"Prácticas Profesionalizantes Especializadas",            corr:[11] },
+];
+const PLAN_MI = [
+  { mod:12, nombre:"Inglés Técnico",                                              corr:[] },
+  { mod:13, nombre:"Mantenimiento Industrial 2",                                  corr:[2] },
+  { mod:14, nombre:"Máquinas Térmicas e Hidráulicas",                             corr:[] },
+  { mod:15, nombre:"Dispositivos e Instalaciones Mecánicas",                      corr:[] },
+  { mod:16, nombre:"Eficiencia Energética",                                       corr:[] },
+  { mod:17, nombre:"Procesos de Extracción y Tratamiento de Recursos Minerales",  corr:[] },
+  { mod:18, nombre:"Procesos Industriales de Manufacturación",                    corr:[] },
+  { mod:19, nombre:"Prácticas Profesionalizantes Especializadas",                 corr:[11] },
+];
+const MODS_EQUIV = [6,7,8,9,10];
+function getPlan(carrera) { return [...PLAN_COMUN, ...(carrera==='GRE'?PLAN_GRE:PLAN_MI)]; }
+
+// ─── ESTADO GLOBAL ────────────────────────────────────────────────
+let sesion = null;   // { usuario, estudiante, registros }
+let histFiltro = 'todos';
+
+// ─── UTILIDADES ───────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function setLoading(v) {
+  let el = document.getElementById('loading-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loading-overlay';
+    el.className = 'loading-overlay';
+    el.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Cargando...';
+    const style = document.createElement('style');
+    style.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+    document.head.appendChild(style);
+    document.body.appendChild(el);
+  }
+  el.style.display = v ? 'flex' : 'none';
+}
+function showScreen(id) {
+  ['screen-login','screen-primer-ingreso','screen-recuperar'].forEach(s => {
+    document.getElementById(s).style.display = s===id ? 'block' : 'none';
+  });
+}
+
+// Hash simple (SHA-256 vía Web Crypto)
+async function hashPass(pass) {
+  const enc = new TextEncoder().encode(pass);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Generar contraseña aleatoria de 8 chars
+function genPass(len=8) {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from({length:len}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+
+// ─── AUTENTICACIÓN ────────────────────────────────────────────────
+async function doLogin() {
+  const dni     = document.getElementById('login-dni').value.trim().replace(/\./g,'');
+  const carrera = document.getElementById('login-carrera').value;
+  const pass    = document.getElementById('login-pass').value;
+  const errEl   = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if (!dni || !carrera || !pass) {
+    errEl.textContent = 'Completá DNI, tecnicatura y contraseña.';
+    errEl.style.display = 'flex'; return;
+  }
+
+  setLoading(true);
+  try {
+    // Buscar usuario por DNI en usuarios_portal
+    const usuarios = await sbGet('usuarios_portal', `dni=eq.${dni}`);
+    if (!usuarios.length) {
+      errEl.textContent = 'DNI no encontrado. Contactá a secretaría.';
+      errEl.style.display = 'flex'; setLoading(false); return;
+    }
+
+    // Verificar contraseña
+    const hash = await hashPass(pass);
+    const usuario = usuarios.find(u => u.password_hash === hash);
+    if (!usuario) {
+      errEl.textContent = 'Contraseña incorrecta.';
+      errEl.style.display = 'flex'; setLoading(false); return;
+    }
+
+    // Cargar estudiante y verificar carrera
+    const estArr = await sbGet('estudiantes', `id=eq.${usuario.estudiante_id}&carrera=eq.${carrera}`);
+    if (!estArr.length) {
+      errEl.textContent = 'El DNI no corresponde a esa tecnicatura.';
+      errEl.style.display = 'flex'; setLoading(false); return;
+    }
+
+    const registrosRaw = await sbGet('registros', `estudiante_id=eq.${estArr[0].id}`);
+    sesion = {
+      usuario,
+      estudiante: estArr[0],
+      registros: registrosRaw.map(r => ({...r, estudianteId: r.estudiante_id}))
+    };
+
+    setLoading(false);
+
+    // ¿Primer ingreso?
+    if (usuario.primer_ingreso) {
+      document.getElementById('auth-wrap').style.display = 'flex';
+      showScreen('screen-primer-ingreso');
+    } else {
+      iniciarPortal();
+    }
+  } catch(e) {
+    errEl.textContent='Error de conexión: '+e.message; errEl.style.display='flex';
+    setLoading(false);
+  }
+}
+
+async function doPrimerIngreso() {
+  const email = document.getElementById('pi-email').value.trim();
+  const pass1 = document.getElementById('pi-pass1').value;
+  const pass2 = document.getElementById('pi-pass2').value;
+  const errEl = document.getElementById('pi-error');
+  errEl.style.display = 'none';
+
+  if (!email || !email.includes('@')) { errEl.textContent='Ingresá un email válido.'; errEl.style.display='flex'; return; }
+  if (pass1.length < 6) { errEl.textContent='La contraseña debe tener al menos 6 caracteres.'; errEl.style.display='flex'; return; }
+  if (pass1 !== pass2) { errEl.textContent='Las contraseñas no coinciden.'; errEl.style.display='flex'; return; }
+
+  setLoading(true);
+  try {
+    const hash = await hashPass(pass1);
+    await sbPatch('usuarios_portal', `id=eq.${sesion.usuario.id}`, {
+      email, password_hash: hash, primer_ingreso: false
+    });
+    sesion.usuario.email = email;
+    sesion.usuario.primer_ingreso = false;
+    setLoading(false);
+    iniciarPortal();
+  } catch(e) {
+    errEl.textContent='Error al guardar: '+e.message; errEl.style.display='flex';
+    setLoading(false);
+  }
+}
+
+async function solicitarReseteo() {
+  const dni     = document.getElementById('rec-dni').value.trim().replace(/\./g,'');
+  const carrera = document.getElementById('rec-carrera').value;
+  if (!dni || !carrera) { alert('Ingresá tu DNI y seleccioná la tecnicatura primero.'); return; }
+  const btn = document.getElementById('btn-solicitar-reseteo');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    const ests = await sbGet('estudiantes', `dni=eq.${dni}&carrera=eq.${carrera}`);
+    const estudianteId = ests.length ? ests[0].id : null;
+    const nombre = ests.length ? ests[0].nombre : `DNI ${dni}`;
+    await fetch(`${SB_URL}/rest/v1/solicitudes_portal`, {
+      method: 'POST', headers: SB_H,
+      body: JSON.stringify({ estudiante_id: estudianteId, tipo: 'Reseteo de clave', detalle: `${nombre} (${carrera}) · DNI: ${dni}`, leida: false })
+    });
+    document.getElementById('reseteo-enviado').style.display = 'block';
+    btn.style.display = 'none';
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '🔑 Solicitar reseteo a secretaría';
+    alert('Error al enviar. Contactá a secretaría directamente.');
+  }
+}
+
+async function doRecuperar() {
+  const dni     = document.getElementById('rec-dni').value.trim().replace(/\./g,'');
+  const carrera = document.getElementById('rec-carrera').value;
+  const msgEl   = document.getElementById('rec-msg');
+  msgEl.style.display = 'none';
+
+  if (!dni || !carrera) {
+    msgEl.className='alert alert-danger';
+    msgEl.textContent='Ingresá tu DNI y seleccioná la tecnicatura.';
+    msgEl.style.display='flex'; return;
+  }
+
+  setLoading(true);
+  try {
+    const usuarios = await sbGet('usuarios_portal', `dni=eq.${dni}`);
+    if (!usuarios.length || !usuarios[0].email) {
+      msgEl.className='alert alert-danger';
+      msgEl.textContent='No tenés un mail registrado. Usá el botón de abajo para pedirle a secretaría que te resetee la clave.';
+      msgEl.style.display='flex'; setLoading(false); return;
+    }
+    const nuevaPass = genPass();
+    const hash = await hashPass(nuevaPass);
+    await sbPatch('usuarios_portal', `id=eq.${usuarios[0].id}`, { password_hash: hash, primer_ingreso: false });
+    msgEl.className='alert alert-info';
+    msgEl.innerHTML=`✓ Nueva contraseña generada: <strong style="letter-spacing:0.05em;">${nuevaPass}</strong><br><small>Anotala y cambiala desde "Mi cuenta" una vez que ingreses.</small>`;
+    msgEl.style.display='block';
+    setLoading(false);
+  } catch(e) {
+    msgEl.className='alert alert-danger'; msgEl.textContent='Error: '+e.message; msgEl.style.display='flex';
+    setLoading(false);
+  }
+}
+
+function cerrarSesion() {
+  sesion = null;
+  document.getElementById('portal-wrap').style.display = 'none';
+  document.getElementById('auth-wrap').style.display = 'flex';
+  document.getElementById('login-dni').value = '';
+  document.getElementById('login-carrera').value = '';
+  document.getElementById('login-pass').value = '';
+  showScreen('screen-login');
+}
+
+// ─── PORTAL PRINCIPAL ─────────────────────────────────────────────
+function iniciarPortal() {
+  document.getElementById('auth-wrap').style.display = 'none';
+  document.getElementById('portal-wrap').style.display = 'flex';
+
+  const est = sesion.estudiante;
+  const carreraLabel = est.carrera==='GRE' ? 'T.S. Generación y Redes Eléctricas' : 'T.S. Mantenimiento Industrial';
+  document.getElementById('portal-nombre-header').textContent = est.nombre;
+  document.getElementById('inicio-nombre').textContent = `Bienvenido/a, ${est.nombre}`;
+  document.getElementById('inicio-carrera').textContent = `${carreraLabel} · Ingreso ${est.ingreso||'—'} · DNI ${est.dni||'—'}`;
+  document.getElementById('cc-email').value = sesion.usuario.email || '';
+
+  renderStats();
+  renderInicio();
+  renderTrayectoria();
+  renderHistorial();
+  renderFechas();
+  renderNovedades();
+  cargarConstancias();
+  renderMesa();
+  renderCursado();
+}
+
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.style.display='none');
+  document.getElementById(id).style.display='block';
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+// ─── STATS ────────────────────────────────────────────────────────
+function calcStats() {
+  const est = sesion.estudiante;
+  const regs = sesion.registros;
+  const plan = getPlan(est.carrera);
+  const equiv = est.tipo==='tecnico' ? MODS_EQUIV : [];
+  const aprobadas = regs.filter(r=>r.estado==='aprobada').map(r=>r.mod);
+  const regulares = regs.filter(r=>r.estado==='regular').map(r=>r.mod);
+  const aprobadasTotal = [...new Set([...aprobadas, ...equiv])];
+  const habilitadas = plan.filter(m =>
+    !aprobadasTotal.includes(m.mod) && regulares.includes(m.mod) && m.corr.every(c=>aprobadas.includes(c))
+  );
+  const pct = Math.round(aprobadasTotal.length / plan.length * 100);
+  return { cntAprobadas: aprobadas.length, cntAprobadasTotal: aprobadasTotal.length, cntRegulares: regulares.length, cntHabilitadas: habilitadas.length, pct, plan, equiv, aprobadas, regulares, aprobadasTotal, habilitadas };
+}
+
+function renderStats() {
+  const s = calcStats();
+  document.getElementById('inicio-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-label">Aprobadas</div><div class="stat-val" style="color:var(--success)">${s.cntAprobadas}</div></div>
+    <div class="stat-box"><div class="stat-label">Regulares</div><div class="stat-val" style="color:var(--warning)">${s.cntRegulares}</div></div>
+    <div class="stat-box"><div class="stat-label">Avance</div><div class="stat-val" style="color:var(--accent)">${s.pct}%</div></div>
+    <div class="stat-box"><div class="stat-label">Puede rendir</div><div class="stat-val" style="color:var(--accent2)">${s.cntHabilitadas}</div></div>
+  `;
+  document.getElementById('hist-stats').innerHTML = document.getElementById('inicio-stats').innerHTML;
+}
+
+// ─── INICIO ──────────────────────────────────────────────────────
+async function renderInicio() {
+  // Fechas próximas (top 4) desde el calendario en memoria
+  try {
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const fuente = window.fechasAdmin || CALENDARIO_2026;
+    const top4 = fuente
+      .filter(f=>f.importante && new Date(f.fecha+'T12:00')>=hoy)
+      .sort((a,b)=>a.fecha.localeCompare(b.fecha))
+      .slice(0,4);
+    if (!top4.length) {
+      document.getElementById('inicio-fechas').innerHTML='<p style="font-size:13px;color:var(--text3);">Sin fechas próximas.</p>';
+    } else {
+      document.getElementById('inicio-fechas').innerHTML = top4.map(f=>{
+        const fecha = new Date(f.fecha+'T12:00');
+        const dias = Math.round((fecha-hoy)/(1000*60*60*24));
+        const badge = dias===0?'<span class="badge badge-danger">Hoy</span>':dias<=7?`<span class="badge badge-danger">En ${dias}d</span>`:dias<=30?`<span class="badge badge-warning">En ${dias}d</span>`:`<span class="badge badge-neutral">${fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'short'})}</span>`;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(208,217,232,0.5);">
+          <div style="flex:1;font-size:13px;color:var(--text);">${f.titulo}</div>${badge}</div>`;
+      }).join('')
+      + `<button class="btn-link" onclick="showTab('tab-fechas',null)" style="margin-top:8px;font-size:12px;">Ver todas →</button>`;
+    }
+  } catch(e) { document.getElementById('inicio-fechas').innerHTML='<p style="color:var(--danger);font-size:13px;">Error al cargar.</p>'; }
+
+  // Novedades (top 3) desde memoria
+  try {
+    const est = sesion?.estudiante;
+    const fuente = (window.novedadesAdmin||[]).filter(n=>!n.carrera||!est||n.carrera===est.carrera);
+    const top3 = fuente.slice(0,3);
+    if (!top3.length) {
+      document.getElementById('inicio-novedades').innerHTML='<p style="font-size:13px;color:var(--text3);">Sin novedades.</p>';
+    } else {
+      document.getElementById('inicio-novedades').innerHTML = top3.map(n=>`
+        <div style="padding:8px 0;border-bottom:1px solid rgba(208,217,232,0.5);">
+          <div style="font-size:13px;font-weight:500;color:var(--text);">${n.titulo}</div>
+          ${n.cuerpo?`<div style="font-size:12px;color:var(--text2);margin-top:2px;">${n.cuerpo.slice(0,80)}${n.cuerpo.length>80?'…':''}</div>`:''}
+        </div>`).join('')
+      + `<button class="btn-link" onclick="showTab('tab-novedades',null)" style="margin-top:8px;font-size:12px;">Ver todas →</button>`;
+    }
+  } catch(e) { document.getElementById('inicio-novedades').innerHTML='<p style="color:var(--danger);font-size:13px;">Error al cargar.</p>'; }
+}
+
+// ─── TRAYECTORIA ──────────────────────────────────────────────────
+function renderTrayectoria() {
+  const est = sesion.estudiante;
+  const s = calcStats();
+  const plan = s.plan;
+
+  function estadoMat(m) {
+    if (s.equiv.includes(m.mod)) return {label:'Equivalencia',cls:'badge-success'};
+    if (s.aprobadas.includes(m.mod)) return {label:'Final aprobado',cls:'badge-success'};
+    if (s.habilitadas.some(h=>h.mod===m.mod)) return {label:'Puede rendir',cls:'badge-warning'};
+    if (s.regulares.includes(m.mod)) return {label:'Regular',cls:'badge-info'};
+    return {label:'Sin cursar',cls:'badge-neutral'};
+  }
+
+  function renderGrupo(mods, titulo) {
+    return `<div class="section-head">${titulo}</div>
+    ${mods.map(m=>{
+      const e2 = estadoMat(m);
+      return `<div class="mat-row">
+        <div class="mat-num">${m.mod}</div>
+        <div class="mat-name">${m.nombre}</div>
+        <span class="badge ${e2.cls}">${e2.label}</span>
+      </div>`;
+    }).join('')}`;
+  }
+
+  document.getElementById('tray-content').innerHTML =
+    `<div class="stats-grid" style="margin-bottom:20px;">${document.getElementById('inicio-stats').innerHTML}</div>
+    <div class="card" style="padding:16px 20px;">
+      ${renderGrupo(PLAN_COMUN,'1° Año — Tronco Común')}
+      ${renderGrupo(est.carrera==='GRE'?PLAN_GRE:PLAN_MI,'2° Año — '+(est.carrera==='GRE'?'Generación y Redes Eléctricas':'Mantenimiento Industrial'))}
+    </div>`;
+}
+
+// ─── LEGAJO DEL ESTUDIANTE ────────────────────────────────────────
+const DOCS_LEGAJO_PORTAL = [
+  { key:'dni',        label:'Fotocopia de DNI',            desc:'Copia de ambas caras del DNI' },
+  { key:'titulo',     label:'Título secundario',           desc:'Original o copia certificada. Puede estar en trámite o bajo Art. 7°' },
+  { key:'nacimiento', label:'Certificado de nacimiento',   desc:'Partida o certificado de nacimiento' },
+  { key:'foto',       label:'2 fotos carnet',              desc:'Fotos de 4×4 cm, fondo blanco' },
+  { key:'apto',       label:'Certificado apto físico',     desc:'Emitido por médico o institución habilitada' },
+  { key:'vacunacion', label:'Certificado de vacunación',   desc:'Carnet de vacunación actualizado' },
+];
+
+const ESTADO_DOC_PORTAL = {
+  entregado: { label:'Entregado ✓',   color:'var(--success)', bg:'rgba(26,122,82,0.08)',  icon:'✅' },
+  tramite:   { label:'En trámite',    color:'var(--warning)', bg:'rgba(176,106,10,0.08)', icon:'🕐' },
+  art7:      { label:'Art. 7°',       color:'#7c3aed',        bg:'rgba(124,58,237,0.08)', icon:'📋' },
+  falta:     { label:'Falta entregar',color:'var(--danger)',  bg:'rgba(184,50,50,0.08)',  icon:'❌' },
+};
+
+async function cargarLegajoPortal() {
+  const cont = document.getElementById('legajo-portal-cont');
+  if (!cont || !sesion) return;
+  cont.innerHTML = '<p style="color:var(--text3);font-size:14px;">Cargando...</p>';
+
+  const est = sesion.estudiante;
+  const ingreso = parseInt(est.ingreso);
+  const esReciente = ingreso >= 2024;
+
+  let leg = {};
+  try {
+    const rows = await sbGet('legajos', `estudiante_id=eq.${est.id}`);
+    if (rows.length) leg = JSON.parse(rows[0].datos || '{}');
+  } catch(e) { /* tabla no existe o sin datos */ }
+
+  // Para 2024 y 2025: todos los docs en verde si no tienen datos cargados
+  if (esReciente && !Object.keys(leg).some(k => DOCS_LEGAJO_PORTAL.some(d => d.key === k))) {
+    DOCS_LEGAJO_PORTAL.forEach(d => { leg[d.key] = 'entregado'; });
+  }
+
+  const total     = DOCS_LEGAJO_PORTAL.length;
+  const entregados = DOCS_LEGAJO_PORTAL.filter(d => leg[d.key] === 'entregado').length;
+  const enTramite  = DOCS_LEGAJO_PORTAL.filter(d => ['tramite','art7'].includes(leg[d.key])).length;
+  const faltan     = total - entregados - enTramite;
+  const pct        = Math.round((entregados / total) * 100);
+
+  const colorBarra = pct === 100 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)';
+
+  cont.innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">Estado de mi legajo</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">
+        Tu legajo reúne la documentación obligatoria para tu inscripción. Si tenés algún documento pendiente, acercate a secretaría.
+      </p>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px;">
+        <div style="text-align:center;min-width:70px;">
+          <div style="font-size:32px;font-weight:700;color:${colorBarra};">${pct}%</div>
+          <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;margin-top:2px;">Completado</div>
+        </div>
+        <div style="flex:1;min-width:160px;display:flex;flex-direction:column;justify-content:center;gap:8px;">
+          <div style="height:10px;background:var(--bg3);border-radius:10px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${colorBarra};border-radius:10px;transition:width 0.5s;"></div>
+          </div>
+          <div style="display:flex;gap:14px;font-size:12px;">
+            <span style="color:var(--success);">✅ ${entregados} entregado${entregados!==1?'s':''}</span>
+            ${enTramite ? `<span style="color:var(--warning);">🕐 ${enTramite} en trámite</span>` : ''}
+            ${faltan    ? `<span style="color:var(--danger);">❌ ${faltan} pendiente${faltan!==1?'s':''}</span>` : ''}
+          </div>
+        </div>
+      </div>
+      ${pct === 100 ? `<div style="background:rgba(26,122,82,0.08);border:1px solid rgba(26,122,82,0.2);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--success);font-weight:600;">🎉 ¡Tu legajo está completo! No tenés documentación pendiente.</div>` : ''}
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${DOCS_LEGAJO_PORTAL.map(d => {
+        const estado = leg[d.key] || 'falta';
+        const info   = ESTADO_DOC_PORTAL[estado] || ESTADO_DOC_PORTAL.falta;
+        return `<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:${info.bg};border:1px solid ${estado==='falta'?'rgba(184,50,50,0.2)':estado==='entregado'?'rgba(26,122,82,0.2)':'rgba(176,106,10,0.2)'};border-radius:10px;">
+          <span style="font-size:22px;flex-shrink:0;">${info.icon}</span>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:600;color:var(--text);">${d.label}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px;">${d.desc}</div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:${info.color};white-space:nowrap;">${info.label}</span>
+        </div>`;
+      }).join('')}
+    </div>
+
+    ${leg.obs ? `<div class="card" style="margin-top:16px;">
+      <div class="card-title">Observaciones de secretaría</div>
+      <p style="font-size:14px;color:var(--text2);">${leg.obs}</p>
+    </div>` : ''}
+
+    ${faltan > 0 ? `<div class="card" style="margin-top:16px;border-color:var(--warning);">
+      <div class="card-title" style="color:var(--warning);">📌 ¿Qué hacer con la documentación pendiente?</div>
+      <p style="font-size:14px;color:var(--text2);line-height:1.6;">Acercate a la secretaría del instituto con los documentos marcados en rojo. Si alguno está en trámite, podés informarlo en secretaría para que lo registren.</p>
+    </div>` : ''}
+  `;
+}
+
+// ─── HISTORIAL ACADÉMICO ──────────────────────────────────────────
+function renderHistorial() {
+  const est = sesion.estudiante;
+  const regs = sesion.registros;
+  const hoy = new Date();
+  const plan = getPlan(est.carrera);
+  const equiv = est.tipo==='tecnico' ? MODS_EQUIV : [];
+
+  const items = plan.map(m => {
+    const reg = regs.find(r=>r.mod===m.mod);
+    const esEquiv = equiv.includes(m.mod);
+    let estado='Sin cursar', badgeCls='badge-neutral', detalle='', vencHtml='';
+
+    if (esEquiv) { estado='Equivalencia'; badgeCls='badge-success'; }
+    else if (reg && reg.estado==='aprobada') {
+      estado='Final aprobado'; badgeCls='badge-success';
+      const fechaFinal = reg.fecha_final ? new Date(reg.fecha_final+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'}) : null;
+      detalle=`Cursada: ${reg.nota_cursado||'—'} &nbsp;·&nbsp; Final: <strong>${reg.nota||'—'}</strong>${fechaFinal?' &nbsp;·&nbsp; '+fechaFinal:''}`;
+    } else if (reg && reg.estado==='regular') {
+      estado='Regular'; badgeCls='badge-info';
+      detalle=`Nota de cursada: ${reg.nota_cursado||'—'}`;
+      if (reg.fecha_cursado) {
+        const venc = new Date(reg.fecha_cursado);
+        venc.setFullYear(venc.getFullYear()+2);
+        const meses = Math.round((venc-hoy)/(1000*60*60*24*30));
+        const vStr = venc.toLocaleDateString('es-AR',{month:'short',year:'numeric'});
+        let vc='background:rgba(26,122,82,0.1);color:var(--success)', vi='📅';
+        if (meses<=3){vc='background:rgba(184,50,50,0.1);color:var(--danger)';vi='⚠️';}
+        else if (meses<=6){vc='background:rgba(176,106,10,0.1);color:var(--warning)';vi='🕐';}
+        vencHtml=`<span style="font-size:11px;padding:3px 9px;border-radius:20px;white-space:nowrap;${vc}">${vi} Vence ${vStr}</span>`;
+      }
+    }
+    return {m, estado, badgeCls, detalle, vencHtml, esEquiv};
+  });
+
+  function renderGrupo(its, titulo) {
+    if (!its.length) return '';
+    return `<div class="section-head" style="margin-top:12px;">${titulo}</div>`
+      + its.map(({m,estado,badgeCls,detalle,vencHtml})=>`
+        <div class="mat-row">
+          <div class="mat-num">${m.mod}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="mat-name">${m.nombre}</div>
+            ${detalle?`<div class="mat-detail">${detalle}</div>`:''}
+          </div>
+          ${vencHtml}
+          <span class="badge ${badgeCls}" style="flex-shrink:0;">${estado}</span>
+        </div>`).join('');
+  }
+
+  function doRender() {
+    const filtrados = histFiltro==='todos' ? items
+      : histFiltro==='aprobada' ? items.filter(i=>i.estado==='Final aprobado'||i.estado==='Equivalencia')
+      : items.filter(i=>i.estado==='Regular');
+    const comun = filtrados.filter(i=>PLAN_COMUN.find(x=>x.mod===i.m.mod));
+    const segundo = filtrados.filter(i=>!PLAN_COMUN.find(x=>x.mod===i.m.mod));
+    document.getElementById('hist-lista').innerHTML =
+      renderGrupo(comun,'1° Año — Tronco Común') +
+      renderGrupo(segundo,'2° Año — '+(est.carrera==='GRE'?'Generación y Redes Eléctricas':'Mantenimiento Industrial'));
+  }
+  doRender();
+  window._doRenderHist = doRender;
+}
+
+function filtrarHist(f, btn) {
+  histFiltro = f;
+  document.querySelectorAll('#tab-historial .btn').forEach(b=>{b.style.color='';b.style.borderColor='';});
+  if(btn){btn.style.color='var(--accent)';btn.style.borderColor='var(--accent)';}
+  if(window._doRenderHist) window._doRenderHist();
+}
+
+// ─── FECHAS IMPORTANTES ───────────────────────────────────────────
+async function renderFechas() {
+  const cont = document.getElementById('fechas-content');
+  try {
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    // Usa el array global CALENDARIO_2026 + cualquier fecha extra del admin
+    const fuente = window.fechasAdmin || CALENDARIO_2026;
+    const sorted = [...fuente].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    const proximas = sorted.filter(f=>new Date(f.fecha+'T12:00')>=hoy);
+    const pasadas  = sorted.filter(f=>new Date(f.fecha+'T12:00')<hoy);
+    const tipoLabel = {'inscripcion_cursado':'Inscripción a cursado','inscripcion_mesa':'Inscripción a mesas','inicio_cuatrimestre':'Inicio de cuatrimestre','fin_cuatrimestre':'Fin de cuatrimestre','mesa_examen':'Mesa de examen'};
+
+    const renderItem = (f) => {
+      const fecha = new Date(f.fecha+'T12:00');
+      const d2 = f.fechaFin ? ' – '+new Date(f.fechaFin+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'}) : '';
+      const dias = Math.round((fecha-hoy)/(1000*60*60*24));
+      let badge;
+      if(dias<0) badge='<span class="badge badge-neutral">Pasada</span>';
+      else if(dias===0) badge='<span class="badge badge-danger">Hoy</span>';
+      else if(dias<=7) badge=`<span class="badge badge-danger">En ${dias} día${dias===1?'':'s'}</span>`;
+      else if(dias<=30) badge=`<span class="badge badge-warning">En ${dias} días</span>`;
+      else badge=`<span class="badge badge-info">${fecha.toLocaleDateString('es-AR',{day:'2-digit',month:'short'})}</span>`;
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(208,217,232,0.5);">
+        <div style="width:54px;text-align:center;flex-shrink:0;">
+          <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);line-height:1;">${fecha.getDate()}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;">${fecha.toLocaleDateString('es-AR',{month:'short'})}</div>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:${f.importante?'600':'400'};">${f.titulo}${d2?`<span style="font-size:11px;color:var(--text3);font-family:var(--mono);"> ${d2}</span>`:''}</div>
+          ${f.desc?`<div style="font-size:12px;color:var(--text2);margin-top:2px;">${f.desc}</div>`:''}
+          ${f.tipo?`<div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px;">${tipoLabel[f.tipo]||f.tipo}</div>`:''}
+        </div>${badge}</div>`;
+    };
+
+    let html = '';
+    if (proximas.length) {
+      html += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+        <div style="padding:10px 16px;font-size:11px;font-family:var(--mono);color:var(--accent);text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--bg3);">Próximas fechas (${proximas.length})</div>
+        <div style="padding:0 16px;">${proximas.map(renderItem).join('')}</div>
+      </div>`;
+    }
+    if (pasadas.length) {
+      html += `<details><summary style="cursor:pointer;font-size:13px;color:var(--text3);padding:6px 0;">Ver fechas pasadas (${pasadas.length})</summary>
+        <div class="card" style="margin-top:8px;padding:0 16px;">${pasadas.map(renderItem).join('')}</div>
+      </details>`;
+    }
+    if (!html) html = '<div class="card"><p style="text-align:center;color:var(--text3);padding:24px 0;font-size:13px;">Sin fechas disponibles.</p></div>';
+    cont.innerHTML = html;
+  } catch(e) { cont.innerHTML='<p style="color:var(--danger);">Error al cargar.</p>'; }
+}
+
+// ─── NOVEDADES ────────────────────────────────────────────────────
+async function renderNovedades() {
+  const cont = document.getElementById('novedades-content');
+  try {
+    const fuente = window.novedadesAdmin || [];
+    const est = sesion?.estudiante;
+    // Filtrar por carrera si aplica
+    const novs = fuente.filter(n => !n.carrera || !est || n.carrera === est.carrera);
+    if (!novs.length) { cont.innerHTML='<div class="card"><p style="text-align:center;color:var(--text3);padding:24px 0;font-size:13px;">Sin novedades por el momento.</p></div>'; return; }
+    cont.innerHTML = '<div class="card">' + novs.map(n=>{
+      const f = new Date(n.fecha).toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
+      return `<div style="padding:14px 0;border-bottom:1px solid rgba(208,217,232,0.5);">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:5px;flex-shrink:0;"></div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:500;">${n.titulo}</div>
+            ${n.cuerpo?`<div style="font-size:13px;color:var(--text2);margin-top:4px;line-height:1.5;">${n.cuerpo}</div>`:''}
+            <div style="font-size:11px;color:var(--text3);margin-top:6px;font-family:var(--mono);">${f}${n.carrera?' · Solo <strong>'+n.carrera+'</strong>':' · Ambas carreras'}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+  } catch(e) { cont.innerHTML='<p style="color:var(--danger);">Error al cargar.</p>'; }
+}
+
+// ─── CONSTANCIAS ──────────────────────────────────────────────────
+async function pedirConstancia(tipo, label) {
+  try {
+    await sbPost('constancias', { estudiante_id: sesion.estudiante.id, tipo, estado:'pendiente' });
+    await enviarNotificacion(tipo, `Tipo: ${label}`);
+    showToast(`Solicitud de "${label}" enviada ✓`);
+    cargarConstancias();
+  } catch(e) { alert('Error: '+e.message); }
+}
+
+async function cargarConstancias() {
+  const cont = document.getElementById('mis-constancias');
+  try {
+    const lista = await sbGet('constancias', `estudiante_id=eq.${sesion.estudiante.id}&order=created_at.desc`);
+    if (!lista.length) { cont.innerHTML='<p style="color:var(--text3);font-size:13px;">No tenés solicitudes todavía.</p>'; return; }
+    const em = {pendiente:['badge-warning','Pendiente'],en_proceso:['badge-info','En proceso'],lista:['badge-success','Lista para retirar']};
+    const tm = {alumno_regular:'Alumno/a regular',inscripcion:'Inscripción',materias_aprobadas:'Materias aprobadas',escolaridad:'Certificado de escolaridad',otra:'Otra'};
+    cont.innerHTML = lista.map(c=>{
+      const [cls,txt]=em[c.estado]||['badge-neutral',c.estado];
+      const f=new Date(c.created_at).toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(208,217,232,0.5);">
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:500;">${tm[c.tipo]||c.tipo}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono);">Solicitada el ${f}</div>
+        </div>
+        <span class="badge ${cls}">${txt}</span>
+      </div>`;
+    }).join('');
+  } catch(e) { cont.innerHTML='<p style="color:var(--danger);">Error al cargar.</p>'; }
+}
+
+// ─── INSCRIPCIÓN A MESA ───────────────────────────────────────────
+async function renderMesa() {
+  const s = calcStats();
+  const habilitadas = s.habilitadas;
+  const cont = document.getElementById('mesa-content');
+  cont.innerHTML = '<p style="color:var(--text3);font-size:13px;">Cargando mesas disponibles...</p>';
+
+  if (!habilitadas.length) {
+    cont.innerHTML=`<div class="alert alert-info"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No tenés materias habilitadas para rendir en este momento.</div>`;
+    return;
+  }
+
+  try {
+    const ahora = new Date().toISOString();
+    // Traer mesas activas con cierre futuro
+    const mesas = await sbGet('mesas', `activa=eq.true&cierre_inscripcion=gt.${ahora}&order=mod.asc,llamado.asc`);
+
+    // Traer inscripciones actuales del estudiante
+    const misInsc = await sbGet('inscripciones', `estudiante_id=eq.${sesion.estudiante.id}&estado=eq.inscripto`);
+    const mesasInscripto = new Set(misInsc.map(i => i.mesa_id));
+
+    // Filtrar mesas de materias que puede rendir
+    const modsMods = habilitadas.map(m => m.mod);
+    const mesasHabilitadas = mesas.filter(m => modsMods.includes(m.mod));
+
+    if (!mesasHabilitadas.length) {
+      cont.innerHTML = `<div class="alert alert-info"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No hay mesas abiertas para tus materias en este momento. Volvé a revisar cuando secretaría las habilite.</div>`;
+      return;
+    }
+
+    // Agrupar por materia
+    const porMod = {};
+    mesasHabilitadas.forEach(m => {
+      if (!porMod[m.mod]) porMod[m.mod] = [];
+      porMod[m.mod].push(m);
+    });
+
+    const PERIODOS = {'Feb-Mar':'Feb/Mar','Jul-Ago':'Jul/Ago','Dic':'Dic','Abr-Ext':'Abr (ext.)','Sep-Ext':'Sep (ext.)'};
+
+    cont.innerHTML = `
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">Inscripción a mesas</div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:18px;">Para cada materia podés elegir inscribirte en un llamado. Solo podés anotarte <b>una vez por materia</b> por período.</p>
+        ${Object.entries(porMod).map(([mod, llamados]) => {
+          const mat = habilitadas.find(m => m.mod == mod);
+          return `<div style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:12px;">
+            <div style="font-weight:500;font-size:14px;margin-bottom:10px;">${mat ? mat.nombre : 'Módulo '+mod}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              ${llamados.map(ll => {
+                const yaInscripto = mesasInscripto.has(ll.id);
+                const fechaF = ll.fecha ? new Date(ll.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) : '?';
+                const label = ll.llamado==='unico' ? 'Único' : ll.llamado+'° Llamado';
+                const periodo = PERIODOS[ll.periodo]||ll.periodo;
+                return yaInscripto
+                  ? `<button class="btn btn-sm" style="background:rgba(184,50,50,0.08);border:1px solid rgba(184,50,50,0.25);color:var(--danger);" onclick="darBajaMesa('${ll.id}')">
+                      ✓ ${periodo} · ${label} · ${fechaF}${ll.horario?' '+ll.horario:''} — Dar de baja
+                     </button>`
+                  : `<button class="btn btn-ghost btn-sm" onclick="inscribirseMesa('${ll.id}', this)">
+                      ${periodo} · ${label} · ${fechaF}${ll.horario?' '+ll.horario:''}
+                     </button>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="card">
+        <div class="card-title">Mis inscripciones activas</div>
+        <div id="mis-inscripciones-lista">
+          ${misInsc.length === 0 ? '<p style="font-size:13px;color:var(--text3);">No estás inscripto en ninguna mesa.</p>' :
+            misInsc.map(i => {
+              const mesa = mesasHabilitadas.find(m => m.id === i.mesa_id);
+              if (!mesa) return '';
+              const mat = habilitadas.find(m => m.mod == mesa.mod);
+              const fechaF = mesa.fecha ? new Date(mesa.fecha+'T12:00').toLocaleDateString('es-AR') : '?';
+              const label = mesa.llamado==='unico'?'Único':mesa.llamado+'° Llamado';
+              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);">
+                <div>
+                  <div style="font-size:13px;font-weight:500;">${mat?mat.nombre:'Módulo '+mesa.mod}</div>
+                  <div style="font-size:11px;color:var(--text3);font-family:var(--mono);">${PERIODOS[mesa.periodo]||mesa.periodo} · ${label} · ${fechaF}${mesa.horario?' '+mesa.horario:''}</div>
+                </div>
+                <span class="badge badge-success">Inscripto</span>
+              </div>`;
+            }).join('')}
+        </div>
+      </div>`;
+  } catch(e) {
+    cont.innerHTML = `<div class="alert alert-danger">Error al cargar mesas: ${e.message}</div>`;
+  }
+}
+
+async function inscribirseMesa(mesaId, btn) {
+  // Verificar que no esté ya inscripto en otro llamado de la misma materia en el mismo período
+  const mesa = await sbGet('mesas', `id=eq.${mesaId}`);
+  if (!mesa[0]) return;
+  const misInsc = await sbGet('inscripciones', `estudiante_id=eq.${sesion.estudiante.id}&estado=eq.inscripto`);
+  const mesasPeriodo = await sbGet('mesas', `periodo=eq.${mesa[0].periodo}&mod=eq.${mesa[0].mod}`);
+  const inscEnPeriodo = misInsc.find(i => mesasPeriodo.some(m => m.id === i.mesa_id));
+  if (inscEnPeriodo) {
+    showToast('Ya estás inscripto en un llamado de esta materia en este período.');
+    return;
+  }
+  try {
+    btn.disabled = true;
+    await sbPost('inscripciones', { estudiante_id: sesion.estudiante.id, mesa_id: mesaId, estado: 'inscripto' });
+    const mat = habilitadas.find(m => m.mod == mesa[0].mod);
+    await guardarSolicitud(
+      'Inscripción a mesa de examen',
+      `Materia: ${mat?.nombre || 'Módulo '+mesa[0].mod} · ${mesa[0].periodo||''} · ${mesa[0].llamado||''}° llamado`
+    );
+    showToast('Inscripción confirmada ✓ — Secretaría fue notificada');
+    renderMesa();
+  } catch(e) { alert('Error: '+e.message); btn.disabled = false; }
+}
+
+async function darBajaMesa(mesaId) {
+  // Verificar que el cierre sea más de 48hs
+  const mesa = await sbGet('mesas', `id=eq.${mesaId}`);
+  if (!mesa[0]) return;
+  const cierre = new Date(mesa[0].cierre_inscripcion);
+  const diff = (cierre - new Date()) / (1000*60*60);
+  if (diff < 48) {
+    alert('Ya no podés darte de baja: quedan menos de 48 horas para el cierre de inscripción.');
+    return;
+  }
+  if (!confirm('¿Dar de baja en esta mesa?')) return;
+  const insc = await sbGet('inscripciones', `estudiante_id=eq.${sesion.estudiante.id}&mesa_id=eq.${mesaId}&estado=eq.inscripto`);
+  if (insc[0]) {
+    await fetch(`${SB_URL}/rest/v1/inscripciones?id=eq.${insc[0].id}`, { method:'PATCH', headers: SB_H, body: JSON.stringify({estado:'baja'}) });
+    showToast('Baja registrada.');
+    renderMesa();
+  }
+}
+
+// ─── INSCRIPCIÓN A CURSADO ────────────────────────────────────────
+async function renderCursado() {
+  const s = calcStats();
+  const est = sesion.estudiante;
+  const plan = getPlan(est.carrera);
+  const cont = document.getElementById('cursado-content');
+  cont.innerHTML = '<p style="color:var(--text3);font-size:13px;">Cargando períodos de inscripción...</p>';
+
+  try {
+    const ahora = new Date().toISOString();
+    // Buscar períodos activos y abiertos ahora
+    const periodos = await sbGet('periodos_cursado', `activo=eq.true&inicio_inscripcion=lt.${ahora}&cierre_inscripcion=gt.${ahora}&order=cuatrimestre.asc`);
+
+    if (!periodos.length) {
+      cont.innerHTML = `<div class="alert alert-info"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>No hay períodos de inscripción a cursado abiertos en este momento.</div>`;
+      return;
+    }
+
+    // Mis inscripciones actuales a cursado
+    const misInsc = await sbGet('inscripciones_cursado', `estudiante_id=eq.${est.id}&estado=eq.inscripto`);
+    const modsInscripto = new Set(misInsc.map(i => i.mod));
+
+    let html = '';
+    for (const p of periodos) {
+      // Determinar qué materias se pueden cursar en este cuatrimestre
+      const durPermitidas = p.cuatrimestre === '1C' ? ['Anual','1° Cuatrimestre'] : ['2° Cuatrimestre'];
+      
+      // Materias del plan que corresponden a este cuatrimestre, no cursando ni aprobadas
+      const disponibles = plan.filter(m =>
+        durPermitidas.includes(m.dur) &&
+        !s.aprobadasTotal.includes(m.mod) &&
+        !s.regulares.includes(m.mod)
+      );
+
+      const cierreF = new Date(p.cierre_inscripcion).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+
+      html += `<div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div>
+            <div class="card-title" style="margin-bottom:2px;">${p.cuatrimestre === '1C' ? '1° Cuatrimestre' : '2° Cuatrimestre'} ${p.anio}</div>
+            <div style="font-size:11px;font-family:var(--mono);color:var(--text3);">Cierre: ${cierreF}</div>
+          </div>
+        </div>`;
+
+      if (!disponibles.length) {
+        html += `<div class="alert alert-info" style="font-size:12px;">Ya estás cursando o aprobaste todas las materias de este cuatrimestre.</div>`;
+      } else {
+        html += `<p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Seleccioná las materias en las que querés inscribirte:</p>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+            ${disponibles.map(m => {
+              const yaInscripto = modsInscripto.has(m.mod);
+              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);">
+                <div>
+                  <div style="font-size:13px;font-weight:500;">${m.nombre}</div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mód. ${m.mod} · ${m.dur}</div>
+                </div>
+                ${yaInscripto
+                  ? `<button class="btn btn-sm" style="background:rgba(184,50,50,0.08);border:1px solid rgba(184,50,50,0.25);color:var(--danger);" onclick="bajaInscripcionCursado('${p.id}',${m.mod})">✓ Inscripto — Dar de baja</button>`
+                  : `<button class="btn btn-ghost btn-sm" onclick="inscribirseCursado('${p.id}',${m.mod},'${est.carrera}',this)">Inscribirme</button>`
+                }
+              </div>`;
+            }).join('')}
+          </div>`;
+      }
+      html += `</div>`;
+    }
+
+    // Mis inscripciones activas
+    html += `<div class="card">
+      <div class="card-title">Mis inscripciones a cursado</div>
+      ${misInsc.length === 0
+        ? '<p style="font-size:13px;color:var(--text3);">No estás inscripto en ninguna materia.</p>'
+        : misInsc.map(i => {
+            const mat = plan.find(m => m.mod === i.mod);
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);">
+              <div>
+                <div style="font-size:13px;font-weight:500;">${mat?mat.nombre:'Módulo '+i.mod}</div>
+                <div style="font-size:11px;color:var(--text3);font-family:var(--mono);">${mat?mat.dur:''}</div>
+              </div>
+              <span class="badge badge-success">Inscripto</span>
+            </div>`;
+          }).join('')}
+    </div>`;
+
+    cont.innerHTML = html;
+  } catch(e) {
+    cont.innerHTML = `<div class="alert alert-danger">Error al cargar: ${e.message}</div>`;
+  }
+}
+
+async function inscribirseCursado(periodoId, mod, carrera, btn) {
+  btn.disabled = true;
+  try {
+    await sbPost('inscripciones_cursado', { estudiante_id: sesion.estudiante.id, periodo_id: periodoId, mod, carrera, estado: 'inscripto' });
+    const mat = getPlan(carrera).find(m => m.mod === mod);
+    await guardarSolicitud(
+      'Inscripción a cursado',
+      `Materia: ${mat?.nombre || 'Módulo '+mod}`
+    );
+    showToast('Inscripción confirmada ✓ — Secretaría fue notificada');
+    renderCursado();
+  } catch(e) { alert('Error: '+e.message); btn.disabled = false; }
+}
+
+async function bajaInscripcionCursado(periodoId, mod) {
+  if (!confirm('¿Dar de baja en esta materia?')) return;
+  const insc = await sbGet('inscripciones_cursado', `estudiante_id=eq.${sesion.estudiante.id}&periodo_id=eq.${periodoId}&mod=eq.${mod}&estado=eq.inscripto`);
+  if (insc[0]) {
+    await fetch(`${SB_URL}/rest/v1/inscripciones_cursado?id=eq.${insc[0].id}`, { method:'PATCH', headers: SB_H, body: JSON.stringify({estado:'baja'}) });
+    showToast('Baja registrada.');
+    renderCursado();
+  }
+}
+
+function toggleSel(el) {
+  el.classList.toggle('selected');
+}
+
+async function confirmarMesa() {
+  const selRows = document.querySelectorAll('#mesa-seleccion .sel-row.selected');
+  if (!selRows.length) { showToast('Seleccioná al menos una materia'); return; }
+  const materias = Array.from(selRows).map(r=>r.querySelector('div:last-child div:first-child').textContent);
+  try {
+    await sbPost('constancias', {
+      estudiante_id: sesion.estudiante.id,
+      tipo: 'inscripcion_mesa',
+      estado: 'pendiente'
+    });
+    showToast(`Inscripción enviada: ${materias.join(', ')} ✓`);
+    selRows.forEach(r=>r.classList.remove('selected'));
+  } catch(e) { alert('Error: '+e.message); }
+}
+
+async function confirmarCursado() {
+  // Esta función ya no se usa — reemplazada por inscribirseCursado()
+}
+
+// ─── MI CUENTA ────────────────────────────────────────────────────
+async function cambiarPassword() {
+  const actual = document.getElementById('cc-actual').value;
+  const nueva  = document.getElementById('cc-nueva').value;
+  const rep    = document.getElementById('cc-repetir').value;
+  const msg    = document.getElementById('cc-msg');
+  msg.style.display='none';
+
+  if (!actual||!nueva||!rep){msg.className='alert alert-danger';msg.textContent='Completá todos los campos.';msg.style.display='flex';return;}
+  if (nueva.length<6){msg.className='alert alert-danger';msg.textContent='La contraseña debe tener al menos 6 caracteres.';msg.style.display='flex';return;}
+  if (nueva!==rep){msg.className='alert alert-danger';msg.textContent='Las contraseñas no coinciden.';msg.style.display='flex';return;}
+
+  const hashActual = await hashPass(actual);
+  if (hashActual !== sesion.usuario.password_hash){msg.className='alert alert-danger';msg.textContent='La contraseña actual es incorrecta.';msg.style.display='flex';return;}
+
+  setLoading(true);
+  try {
+    const hashNueva = await hashPass(nueva);
+    await sbPatch('usuarios_portal', `id=eq.${sesion.usuario.id}`, {password_hash: hashNueva});
+    sesion.usuario.password_hash = hashNueva;
+    ['cc-actual','cc-nueva','cc-repetir'].forEach(id=>document.getElementById(id).value='');
+    setLoading(false);
+    msg.className='alert alert-info';msg.textContent='✓ Contraseña actualizada correctamente.';msg.style.display='flex';
+  } catch(e){msg.className='alert alert-danger';msg.textContent='Error: '+e.message;msg.style.display='flex';setLoading(false);}
+}
+
+async function actualizarEmail() {
+  const email = document.getElementById('cc-email').value.trim();
+  const msg   = document.getElementById('email-msg');
+  msg.style.display='none';
+  if (!email||!email.includes('@')){msg.className='alert alert-danger';msg.textContent='Ingresá un email válido.';msg.style.display='flex';return;}
+  setLoading(true);
+  try {
+    await sbPatch('usuarios_portal',`id=eq.${sesion.usuario.id}`,{email});
+    sesion.usuario.email=email;
+    setLoading(false);
+    msg.className='alert alert-info';msg.textContent='✓ Mail actualizado.';msg.style.display='flex';
+  } catch(e){msg.className='alert alert-danger';msg.textContent='Error: '+e.message;msg.style.display='flex';setLoading(false);}
+}
+
+// ─── CERTIFICADO DE ESCOLARIDAD ───────────────────────────────────
+function abrirConstanciaEscolaridad() {
+  document.getElementById('form-escolaridad').style.display = 'block';
+  document.getElementById('form-escolaridad').scrollIntoView({ behavior: 'smooth' });
+}
+function cerrarEscolaridad() {
+  document.getElementById('form-escolaridad').style.display = 'none';
+  ['esc-edad','esc-tutor-nombre','esc-tutor-dni','esc-destino'].forEach(id => document.getElementById(id).value = '');
+}
+async function solicitarConstancia(tipo) {
+  const tipoLabel = { alumno_regular:'Alumno/a regular', inscripcion:'Inscripción', materias_aprobadas:'Materias aprobadas', escolaridad:'Certificado de escolaridad', otra:'Otra' };
+  if (!confirm(`¿Confirmar solicitud de constancia: ${tipoLabel[tipo]||tipo}?`)) return;
+  try {
+    await sbPost('constancias', { estudiante_id: sesion.estudiante.id, tipo, estado: 'pendiente' });
+    await guardarSolicitud('Constancia — ' + (tipoLabel[tipo]||tipo), `Tipo: ${tipoLabel[tipo]||tipo}`);
+    showToast('Solicitud enviada ✓ — Secretaría fue notificada');
+    cargarConstancias();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+async function enviarEscolaridad() {
+  const edad        = document.getElementById('esc-edad').value.trim();
+  const tutorNombre = document.getElementById('esc-tutor-nombre').value.trim();
+  const tutorDni    = document.getElementById('esc-tutor-dni').value.trim();
+  const destino     = document.getElementById('esc-destino').value.trim();
+  if (!edad) { alert('Ingresá tu edad.'); return; }
+  try {
+    await sbPost('constancias', {
+      estudiante_id: sesion.estudiante.id,
+      tipo: 'escolaridad',
+      estado: 'pendiente',
+      datos: JSON.stringify({ edad, tutorNombre, tutorDni, destino })
+    });
+    await guardarSolicitud('Constancia de escolaridad', `Destino: ${destino||'no especificado'}`);
+    showToast('Solicitud enviada ✓ — Secretaría fue notificada');
+    cerrarEscolaridad();
+    cargarConstancias();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ─── EXPONER FUNCIONES AL WINDOW (requerido por type="module") ────
+Object.assign(window, {
+  doLogin, doPrimerIngreso, doRecuperar, showScreen, showTab,
+  cerrarSesion, filtrarHist, solicitarConstancia, abrirConstanciaEscolaridad,
+  cerrarEscolaridad, enviarEscolaridad, inscribirseMesa, darBajaMesa,
+  inscribirseCursado, bajaInscripcionCursado, cambiarPassword, actualizarEmail,
+  toggleSel, confirmarMesa, confirmarCursado
+});
+</script>
+</body>
+</html>
