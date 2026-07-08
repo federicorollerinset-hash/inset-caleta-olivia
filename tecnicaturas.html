@@ -3167,6 +3167,7 @@ function generarGrillaPeriodo() {
 async function guardarGrilla() {
   const periodo = document.getElementById('mp-periodo').value;
   const cierre  = document.getElementById('mp-cierre').value;
+  const cierreUTC = cierre ? cierre + ':00-03:00' : cierre; // hora Argentina, ver nota en abrirPeriodoCursado()
 
   // Recolectar solo las filas con fecha cargada
   const filas = document.querySelectorAll('.grilla-fecha');
@@ -3182,7 +3183,7 @@ async function guardarGrilla() {
       mod:      parseInt(inp.dataset.mod),
       fecha:    inp.value,
       horario:  horarioEl?.value || null,
-      cierre_inscripcion: cierre,
+      cierre_inscripcion: cierreUTC,
       activa:   true
     });
   });
@@ -3237,7 +3238,12 @@ async function abrirPeriodoCursado() {
 
   mostrarCargando(true);
   try {
-    await sbPost('periodos_cursado', { cuatrimestre: cuatri, anio: parseInt(anio), inicio_inscripcion: inicio, cierre_inscripcion: cierre, activo: true });
+    // Los inputs datetime-local vienen en hora Argentina (sin zona horaria).
+    // Hay que indicarle explícitamente el offset -03:00 antes de mandarlo a Supabase,
+    // si no lo toma como UTC y el horario se corre 3hs al mostrarse.
+    const inicioUTC = inicio + ':00-03:00';
+    const cierreUTC = cierre + ':00-03:00';
+    await sbPost('periodos_cursado', { cuatrimestre: cuatri, anio: parseInt(anio), inicio_inscripcion: inicioUTC, cierre_inscripcion: cierreUTC, activo: true });
     showToast(`Período ${cuatri} ${anio} abierto correctamente`);
     limpiarFormCursado();
   } catch(e) { alert('Error: ' + e.message); }
@@ -3256,15 +3262,38 @@ async function cargarPeriodosCursadoAdmin() {
       const cierreF = new Date(p.cierre_inscripcion).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
       const ahora = new Date();
       const abierto = p.activo && new Date(p.cierre_inscripcion) > ahora && new Date(p.inicio_inscripcion) <= ahora;
-      return `<div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-        <div>
-          <div style="font-weight:500;font-size:15px;">${p.cuatrimestre} — ${p.anio}</div>
-          <div style="font-size:12px;font-family:var(--mono);color:var(--text3);margin-top:4px;">Inscripción: ${inicioF} → ${cierreF}</div>
+
+      // Materias que se ofrecen este cuatrimestre, por carrera (según duración en el plan de estudios)
+      const durPermitidas = p.cuatrimestre === '1C' ? ['Anual','1° Cuatrimestre'] : ['2° Cuatrimestre'];
+      const matsGRE = getPlan('GRE').filter(m => durPermitidas.includes(m.dur));
+      const matsMI  = getPlan('MI').filter(m => durPermitidas.includes(m.dur));
+      const listaMats = (mats) => mats.map(m => `<li>Mód. ${m.mod} — ${m.nombre}</li>`).join('');
+
+      return `<div class="card" style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div style="font-weight:500;font-size:15px;">${p.cuatrimestre} — ${p.anio}</div>
+            <div style="font-size:12px;font-family:var(--mono);color:var(--text3);margin-top:4px;">Inscripción: ${inicioF} → ${cierreF}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="badge ${abierto?'badge-success':p.activo?'badge-warning':'badge-danger'}">${abierto?'Abierto':p.activo?'Programado':'Cerrado'}</span>
+            ${p.activo ? `<button class="btn btn-danger btn-sm" onclick="cerrarPeriodoCursado('${p.id}')">Cerrar</button>` : ''}
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger);border-color:rgba(184,50,50,0.3);" onclick="eliminarPeriodoCursado('${p.id}','${p.cuatrimestre} ${p.anio}')">Eliminar</button>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span class="badge ${abierto?'badge-success':p.activo?'badge-warning':'badge-danger'}">${abierto?'Abierto':p.activo?'Programado':'Cerrado'}</span>
-          ${p.activo ? `<button class="btn btn-danger btn-sm" onclick="cerrarPeriodoCursado('${p.id}')">Cerrar</button>` : ''}
-        </div>
+        <details style="margin-top:12px;">
+          <summary style="cursor:pointer;font-size:12px;font-family:var(--mono);color:var(--accent);text-transform:uppercase;">Ver materias que se ofrecen</summary>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px;font-size:13px;">
+            <div>
+              <div style="font-weight:500;margin-bottom:4px;color:var(--text2);">GRE</div>
+              <ul style="padding-left:18px;color:var(--text3);line-height:1.7;">${matsGRE.length?listaMats(matsGRE):'<li>—</li>'}</ul>
+            </div>
+            <div>
+              <div style="font-weight:500;margin-bottom:4px;color:var(--text2);">MI</div>
+              <ul style="padding-left:18px;color:var(--text3);line-height:1.7;">${matsMI.length?listaMats(matsMI):'<li>—</li>'}</ul>
+            </div>
+          </div>
+        </details>
       </div>`;
     }).join('');
 
@@ -3280,6 +3309,19 @@ async function cerrarPeriodoCursado(id) {
   await fetch(`${SB_URL}/rest/v1/periodos_cursado?id=eq.${id}`, { method:'PATCH', headers: SB_H, body: JSON.stringify({activo: false}) });
   showToast('Período cerrado');
   cargarPeriodosCursadoAdmin();
+}
+
+async function eliminarPeriodoCursado(id, label) {
+  if (!confirm(`¿Eliminar definitivamente el período ${label}? Esto también borra las inscripciones de estudiantes asociadas a este período. No se puede deshacer.`)) return;
+  mostrarCargando(true);
+  try {
+    // Borrar primero las inscripciones ligadas a este período para no dejar registros huérfanos
+    await fetch(`${SB_URL}/rest/v1/inscripciones_cursado?periodo_id=eq.${id}`, { method:'DELETE', headers: SB_H });
+    await fetch(`${SB_URL}/rest/v1/periodos_cursado?id=eq.${id}`, { method:'DELETE', headers: SB_H });
+    showToast('Período eliminado');
+    cargarPeriodosCursadoAdmin();
+  } catch(e) { alert('Error: ' + e.message); }
+  mostrarCargando(false);
 }
 
 async function cargarInscriptosCursadoAdmin() {
@@ -3381,7 +3423,8 @@ async function crearLlamado() {
 
   mostrarCargando(true);
   try {
-    await sbPost('mesas', { periodo, llamado, carrera, mod: parseInt(mod), fecha, horario: horario||null, cierre_inscripcion: cierre, aula: aula||null, activa: true });
+    const cierreUTC = cierre + ':00-03:00'; // hora Argentina, ver nota en abrirPeriodoCursado()
+    await sbPost('mesas', { periodo, llamado, carrera, mod: parseInt(mod), fecha, horario: horario||null, cierre_inscripcion: cierreUTC, aula: aula||null, activa: true });
     showToast('Llamado creado correctamente');
     limpiarFormMesa();
   } catch(e) { alert('Error: ' + e.message); }

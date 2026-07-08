@@ -109,6 +109,29 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
 .const-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; background: var(--bg2); width: 100%; text-align: left; font-family: var(--sans); transition: border-color 0.15s; }
 .const-btn:hover { border-color: var(--accent); }
 
+/* ── HAMBURGER MENU (mobile) ──────────────────── */
+.hamburger { display: none; background: none; border: none; cursor: pointer; padding: 8px; flex-direction: column; gap: 5px; flex-shrink: 0; }
+.hamburger span { display: block; width: 20px; height: 2px; background: #fff; border-radius: 2px; transition: all 0.2s; }
+.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99; }
+.sidebar-overlay.open { display: block; }
+
+@media (max-width: 768px) {
+  .hamburger { display: flex; }
+  .portal-nav {
+    position: fixed; top: 0; left: -270px; width: 270px; height: 100vh;
+    flex-direction: column; align-items: stretch; gap: 0;
+    background: var(--bg2); border-right: 1px solid var(--border); border-bottom: none;
+    padding: 16px 0; overflow-y: auto; overflow-x: visible;
+    z-index: 100; transition: left 0.25s ease;
+  }
+  .portal-nav.open { left: 0; }
+  .portal-nav .nav-tab {
+    border-bottom: none; border-left: 3px solid transparent;
+    text-align: left; padding: 13px 20px; font-size: 14px; min-height: 44px;
+  }
+  .portal-nav .nav-tab.active { border-bottom-color: transparent; border-left-color: var(--accent); background: rgba(26,79,138,0.06); }
+}
+
 @media (max-width: 600px) {
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .auth-box { padding: 28px 20px; }
@@ -248,12 +271,17 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
 <div id="portal-wrap" class="portal-wrap">
 
   <div class="portal-header">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Menú">
+      <span></span><span></span><span></span>
+    </button>
     <div class="portal-header-title">Portal estudiantil · Inset Caleta Olivia</div>
     <div class="portal-header-user" id="portal-nombre-header">—</div>
     <button class="portal-header-btn" onclick="cerrarSesion()">Cerrar sesión</button>
   </div>
 
-  <div class="portal-nav">
+  <div class="sidebar-overlay" id="portal-sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <div class="portal-nav" id="portal-nav">
     <button class="nav-tab active" onclick="showTab('tab-inicio',this)">Inicio</button>
     <button class="nav-tab" onclick="showTab('tab-trayectoria',this)">Mi trayectoria</button>
     <button class="nav-tab" onclick="showTab('tab-historial',this)">Historial académico</button>
@@ -791,7 +819,19 @@ function showTab(id, btn) {
   document.getElementById(id).style.display='block';
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  closeSidebar();
 }
+
+// ─── HAMBURGER MENU (mobile) ────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('portal-nav').classList.toggle('open');
+  document.getElementById('portal-sidebar-overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('portal-nav').classList.remove('open');
+  document.getElementById('portal-sidebar-overlay').classList.remove('open');
+}
+
 
 // ─── STATS ────────────────────────────────────────────────────────
 function calcStats() {
@@ -1526,7 +1566,7 @@ Object.assign(window, {
   cerrarSesion, filtrarHist, solicitarConstancia, abrirConstanciaEscolaridad,
   cerrarEscolaridad, enviarEscolaridad, inscribirseMesa, darBajaMesa,
   inscribirseCursado, bajaInscripcionCursado, cambiarPassword, actualizarEmail,
-  toggleSel, confirmarMesa, confirmarCursado
+  toggleSel, confirmarMesa, confirmarCursado, toggleSidebar, closeSidebar
 });
 </script>
 </body>
