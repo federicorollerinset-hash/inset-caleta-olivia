@@ -2201,9 +2201,9 @@ function procesarFilas(filas) {
       if (!['GRE','MI'].includes(carrera)) errores.push('carrera inválida');
       if (!['tecnico','no-tecnico'].includes(tipoNorm)) errores.push('tipo inválido');
       const dup = estudiantes.find(e => dni && e.dni && String(e.dni).replace(/\D/g,'') === dni);
-      const yaExiste = dup ? dup.nombre : null;
+      if (dup) errores.push(`DNI ya existe (${dup.nombre})`);
 
-      mapaEst.set(key, { nombre, dni, ingreso, carrera, tipo: tipoNorm, contacto, errores, yaExiste, materias: [] });
+      mapaEst.set(key, { nombre, dni, ingreso, carrera, tipo: tipoNorm, contacto, errores, materias: [] });
       ordenEst.push(key);
     }
 
@@ -2225,20 +2225,10 @@ function procesarFilas(filas) {
 
   const errDiv = document.getElementById('preview-errores');
   const errList = datosImport.filter(d => d.errores.length > 0);
-  const existList = datosImport.filter(d => d.errores.length === 0 && d.yaExiste);
-  let errHtml = '';
   if (errList.length) {
-    errHtml += '<b>Con errores (no se importarán):</b><br>' +
-      errList.map(d => `${d.nombre||'?'}: ${d.errores.join(', ')}`).join('<br>');
-  }
-  if (existList.length) {
-    if (errHtml) errHtml += '<br><br>';
-    errHtml += '<b>Ya existen (se agregarán solo las materias nuevas):</b><br>' +
-      existList.map(d => `${d.nombre} (coincide con ${d.yaExiste})`).join('<br>');
-  }
-  if (errHtml) {
     errDiv.style.display = 'block';
-    errDiv.innerHTML = errHtml;
+    errDiv.innerHTML = '<b>Con errores (no se importarán):</b><br>' +
+      errList.map(d => `${d.nombre||'?'}: ${d.errores.join(', ')}`).join('<br>');
   } else {
     errDiv.style.display = 'none';
   }
@@ -2253,7 +2243,7 @@ function procesarFilas(filas) {
       <td>${d.carrera ? `<span class="badge ${d.carrera==='GRE'?'badge-info':'badge-warning'}">${d.carrera}</span>` : '<span class="badge badge-danger">?</span>'}</td>
       <td>${d.tipo==='tecnico'?'Técnico':d.tipo==='no-tecnico'?'No técnico':'<span style="color:var(--danger)">?</span>'}</td>
       <td style="font-size:12px;color:var(--text3)">${d.materias.length ? d.materias.length+' materia'+(d.materias.length>1?'s':'') : '—'}</td>
-      <td>${d.errores.length>0 ? '<span class="badge badge-danger">✗ Error</span>' : d.yaExiste ? '<span class="badge badge-warning">↻ Existente</span>' : '<span class="badge badge-success">✓ OK</span>'}</td>
+      <td>${d.errores.length===0 ? '<span class="badge badge-success">✓ OK</span>' : '<span class="badge badge-danger">✗ Error</span>'}</td>
     </tr>`).join('');
 
   const btnImp = document.getElementById('btn-importar');
@@ -2492,18 +2482,19 @@ function cargarMateriasEstudiante() {
 
     if (yaAprobada || esEquiv) return; // ya está, no mostrar
 
-    const corrCumplidas = m.corr.every(c => aprobadas.includes(c));
+    const corrCumplidasCursar = m.corr.every(c => aprobadas.includes(c) || regulares.includes(c));
+    const corrCumplidasFinal = m.corr.every(c => aprobadas.includes(c));
 
     if (estado === 'regular') {
       if (regulares.includes(m.mod)) return; // ya la tiene regular
-      if (corrCumplidas) {
+      if (corrCumplidasCursar) {
         materiasHabilitadas.push(m);
       } else {
-        bloqueadas.push({ m, faltantes: m.corr.filter(c => !aprobadas.includes(c)) });
+        bloqueadas.push({ m, faltantes: m.corr.filter(c => !aprobadas.includes(c) && !regulares.includes(c)) });
       }
     } else if (estado === 'aprobada') {
       if (!regulares.includes(m.mod) && !yaAprobada) return;
-      if (corrCumplidas) {
+      if (corrCumplidasFinal) {
         materiasHabilitadas.push(m);
       } else {
         bloqueadas.push({ m, faltantes: m.corr.filter(c => !aprobadas.includes(c)) });
