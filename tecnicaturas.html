@@ -1547,6 +1547,21 @@
         <button class="btn btn-success" onclick="guardarEdicionEstudiante()">Guardar cambios</button>
         <button class="btn btn-ghost" onclick="cerrarEditarEstudiante()">Cancelar</button>
       </div>
+
+      <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border);">
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger);border-color:rgba(184,50,50,0.3);" onclick="mostrarZonaEliminar()" id="btn-mostrar-eliminar">Eliminar estudiante…</button>
+        <div id="zona-eliminar-est" style="display:none;margin-top:12px;background:rgba(184,50,50,0.06);border:1px solid rgba(184,50,50,0.25);border-radius:8px;padding:14px 16px;">
+          <div style="font-size:12px;color:var(--danger);line-height:1.6;margin-bottom:10px;">
+            Esto borra <b>definitivamente</b> al estudiante y todo lo asociado: materias/notas, inscripciones a mesas y cursado, legajo y usuario del portal. No se puede deshacer.<br>
+            Para confirmar, escribí el nombre exacto tal como figura arriba: <b id="confirm-nombre-target"></b>
+          </div>
+          <input type="text" id="confirm-nombre-input" placeholder="Escribí el nombre exacto" style="margin-bottom:10px;">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-danger btn-sm" onclick="confirmarEliminarEstudiante()">Eliminar definitivamente</button>
+            <button class="btn btn-ghost btn-sm" onclick="ocultarZonaEliminar()">Cancelar</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   </main>
@@ -1856,6 +1871,8 @@ function abrirEditarEstudiante(id) {
   document.getElementById('edit-est-tipo').value   = e.tipo || '';
   document.getElementById('edit-est-contacto').value= e.contacto || '';
   document.getElementById('edit-est-estado').value = e.estado_est || 'activo';
+  document.getElementById('zona-eliminar-est').style.display = 'none';
+  document.getElementById('btn-mostrar-eliminar').style.display = 'inline-block';
   document.getElementById('modal-editar-est').style.display = 'flex';
 }
 
@@ -1892,6 +1909,60 @@ async function guardarEdicionEstudiante() {
     showToast('Datos actualizados correctamente');
   } catch(e) {
     alert('Error al guardar: ' + e.message);
+  }
+  mostrarCargando(false);
+}
+
+// ─── ELIMINAR ESTUDIANTE ───────────────────────────────────────────
+function mostrarZonaEliminar() {
+  const e = estudiantes.find(e => e.id === document.getElementById('edit-est-id').value);
+  document.getElementById('confirm-nombre-target').textContent = e ? e.nombre : '';
+  document.getElementById('confirm-nombre-input').value = '';
+  document.getElementById('zona-eliminar-est').style.display = 'block';
+  document.getElementById('btn-mostrar-eliminar').style.display = 'none';
+}
+
+function ocultarZonaEliminar() {
+  document.getElementById('zona-eliminar-est').style.display = 'none';
+  document.getElementById('btn-mostrar-eliminar').style.display = 'inline-block';
+}
+
+async function confirmarEliminarEstudiante() {
+  const id = document.getElementById('edit-est-id').value;
+  const e = estudiantes.find(e => e.id === id);
+  if (!e) return;
+
+  const escrito = document.getElementById('confirm-nombre-input').value.trim();
+  if (escrito !== e.nombre) {
+    alert('El nombre no coincide exactamente. Copialo tal cual está arriba para confirmar.');
+    return;
+  }
+
+  mostrarCargando(true);
+  try {
+    // Borrar en cascada — el orden importa por posibles FKs
+    const tablasHijas = ['registros', 'inscripciones_cursado', 'inscripciones', 'legajos', 'solicitudes_portal', 'usuarios_portal'];
+    for (const tabla of tablasHijas) {
+      try {
+        await fetch(`${SB_URL}/rest/v1/${tabla}?estudiante_id=eq.${id}`, { method: 'DELETE', headers: SB_H });
+      } catch (err) {
+        // Si la tabla no existe o no tiene esa columna, seguimos con las demás
+        console.warn(`No se pudo limpiar ${tabla}:`, err.message);
+      }
+    }
+    const r = await fetch(`${SB_URL}/rest/v1/estudiantes?id=eq.${id}`, { method: 'DELETE', headers: SB_H });
+    if (!r.ok) throw new Error(await r.text());
+
+    estudiantes = estudiantes.filter(e => e.id !== id);
+    registros = registros.filter(r => r.estudianteId !== id);
+    cerrarEditarEstudiante();
+    poblarFiltroAnio();
+    renderEstudiantes();
+    updateSidebar();
+    renderDashboard();
+    showToast('Estudiante eliminado correctamente');
+  } catch (err) {
+    alert('Error al eliminar: ' + err.message);
   }
   mostrarCargando(false);
 }
