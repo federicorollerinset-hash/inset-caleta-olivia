@@ -1787,15 +1787,19 @@ function poblarFiltroAnio() {
     anios.map(a => `<option value="${a}" ${a==actual?'selected':''}>${a}</option>`).join('');
 }
 
+function normalizarTexto(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 function renderEstudiantes() {
-  const filtro    = (document.getElementById('buscar-nombre')?.value || '').toLowerCase();
+  const filtro    = normalizarTexto(document.getElementById('buscar-nombre')?.value || '');
   const carreraF  = document.getElementById('filtro-carrera')?.value || '';
   const anioF     = document.getElementById('filtro-anio')?.value || '';
   const estadoF   = document.getElementById('filtro-estado-est')?.value || '';
   const cont      = document.getElementById('lista-estudiantes');
 
   let lista = [...estudiantes].sort((a,b) => a.nombre.localeCompare(b.nombre, 'es'));
-  if (filtro)   lista = lista.filter(e => e.nombre.toLowerCase().includes(filtro));
+  if (filtro)   lista = lista.filter(e => normalizarTexto(e.nombre).includes(filtro));
   if (carreraF) lista = lista.filter(e => e.carrera === carreraF);
   if (anioF)    lista = lista.filter(e => String(e.ingreso) === String(anioF));
   if (estadoF)  lista = lista.filter(e => (e.estado_est || 'activo') === estadoF);
@@ -2177,7 +2181,7 @@ function procesarFilas(filas) {
     const nombre  = leer(fila, 'apellido y nombre', 'nombre');
     const dni     = leer(fila, 'dni').replace(/\D/g,'');
     const ingreso = leer(fila, 'ingreso', 'año de ingreso');
-    const carrera = leer(fila, 'carrera').toUpperCase();
+    let carrera   = leer(fila, 'carrera').toUpperCase();
     const tipo    = leer(fila, 'titulo', 'título', 'titulo secundario', 'título secundario', 'tipo');
     const contacto= leer(fila, 'contacto', 'email');
     const materia = leer(fila, 'materia');
@@ -2197,13 +2201,18 @@ function procesarFilas(filas) {
     if (!mapaEst.has(key)) {
       const tipoNorm = tipo.toLowerCase().includes('no') ? 'no-tecnico' : 'tecnico';
       const errores = [];
-      if (!nombre) errores.push('falta nombre');
-      if (!['GRE','MI'].includes(carrera)) errores.push('carrera inválida');
-      if (!['tecnico','no-tecnico'].includes(tipoNorm)) errores.push('tipo inválido');
       const dup = estudiantes.find(e => dni && e.dni && String(e.dni).replace(/\D/g,'') === dni);
-      if (dup) errores.push(`DNI ya existe (${dup.nombre})`);
+      if (!nombre) errores.push('falta nombre');
+      // Si el estudiante ya existe, no hace falta validar carrera/tipo (se usan solo para altas nuevas)
+      if (!dup) {
+        if (!['GRE','MI'].includes(carrera)) errores.push('carrera inválida');
+        if (!['tecnico','no-tecnico'].includes(tipoNorm)) errores.push('tipo inválido');
+      } else if (!['GRE','MI'].includes(carrera)) {
+        // Para materias sí necesitamos saber la carrera del estudiante existente, aunque no venga en el Excel
+        carrera = dup.carrera;
+      }
 
-      mapaEst.set(key, { nombre, dni, ingreso, carrera, tipo: tipoNorm, contacto, errores, materias: [] });
+      mapaEst.set(key, { nombre, dni, ingreso, carrera, tipo: tipoNorm, contacto, errores, materias: [], yaExiste: !!dup });
       ordenEst.push(key);
     }
 
@@ -2216,12 +2225,14 @@ function procesarFilas(filas) {
 
   datosImport = ordenEst.map(key => mapaEst.get(key));
 
-  const ok     = datosImport.filter(d => d.errores.length === 0).length;
-  const conErr = datosImport.filter(d => d.errores.length > 0).length;
-  const totMat = datosImport.reduce((s,d) => s + d.materias.length, 0);
+  const ok       = datosImport.filter(d => d.errores.length === 0).length;
+  const nuevos   = datosImport.filter(d => d.errores.length === 0 && !d.yaExiste).length;
+  const existentes = datosImport.filter(d => d.errores.length === 0 && d.yaExiste).length;
+  const conErr   = datosImport.filter(d => d.errores.length > 0).length;
+  const totMat   = datosImport.reduce((s,d) => s + d.materias.length, 0);
 
   document.getElementById('preview-resumen').textContent =
-    `${ok} estudiantes válidos · ${conErr} con errores · ${totMat} materias`;
+    `${nuevos} altas nuevas · ${existentes} ya existentes (solo se les cargan materias) · ${conErr} con errores · ${totMat} materias en total`;
 
   const errDiv = document.getElementById('preview-errores');
   const errList = datosImport.filter(d => d.errores.length > 0);
@@ -2237,7 +2248,7 @@ function procesarFilas(filas) {
   tbody.innerHTML = datosImport.map((d,i) => `
     <tr style="opacity:${d.errores.length===0?'1':'0.4'}">
       <td>${i+1}</td>
-      <td>${d.nombre || '<i style="color:var(--danger)">—</i>'}</td>
+      <td>${d.nombre || '<i style="color:var(--danger)">—</i>'}${d.yaExiste ? ' <span style="font-size:11px;color:var(--text3)">(ya existe)</span>' : ''}</td>
       <td>${d.dni || '—'}</td>
       <td>${d.ingreso || '—'}</td>
       <td>${d.carrera ? `<span class="badge ${d.carrera==='GRE'?'badge-info':'badge-warning'}">${d.carrera}</span>` : '<span class="badge badge-danger">?</span>'}</td>
@@ -2247,7 +2258,7 @@ function procesarFilas(filas) {
     </tr>`).join('');
 
   const btnImp = document.getElementById('btn-importar');
-  btnImp.textContent = ok ? `Importar ${ok} estudiante${ok>1?'s':''}${totMat?' + '+totMat+' materias':''}` : 'Sin registros válidos';
+  btnImp.textContent = ok ? `Importar ${nuevos} estudiante${nuevos!==1?'s':''} nuevo${nuevos!==1?'s':''}${totMat?' + '+totMat+' materias':''}` : 'Sin registros válidos';
   btnImp.disabled = ok === 0;
 
   document.getElementById('preview-masiva').style.display = 'block';
