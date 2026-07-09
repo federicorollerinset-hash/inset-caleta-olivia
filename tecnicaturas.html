@@ -601,6 +601,13 @@
         <h2>Cargar materia</h2>
         <p>Registrá una materia regularizada o con final aprobado</p>
       </div>
+
+      <div class="tabs" style="margin-bottom:18px;">
+        <button class="tab active" onclick="switchTab('tab-cm-individual', this)">Carga individual</button>
+        <button class="tab" onclick="switchTab('tab-cm-masiva', this)">Carga masiva (regularidades / finales)</button>
+      </div>
+
+      <div id="tab-cm-individual" class="tab-pane">
       <div class="card">
         <div class="card-title">Datos del cursado / examen</div>
         <div class="form-grid">
@@ -755,6 +762,57 @@
         <div class="btn-row">
           <button class="btn btn-success" onclick="guardarMateria()">Guardar</button>
           <button class="btn btn-ghost" onclick="limpiarFormMateria()">Limpiar</button>
+        </div>
+      </div>
+      </div>
+
+      <div id="tab-cm-masiva" class="tab-pane" style="display:none;">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">1. Formato del Excel</div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">
+            Una fila por materia rendida/cursada. El estudiante tiene que <b>ya existir</b> en el sistema (se busca por DNI) — esta carga no da de alta estudiantes nuevos.
+            Dejá vacías las columnas que no correspondan (si es solo regularidad, no completes fecha/nota de final; si es solo final, no completes fecha/nota de cursado).
+          </p>
+          <table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <tr style="background:var(--bg2);"><th style="text-align:left;padding:6px 8px;border:1px solid var(--border);">dni</th><th style="text-align:left;padding:6px 8px;border:1px solid var(--border);">materia</th><th style="text-align:left;padding:6px 8px;border:1px solid var(--border);">f. cursado</th><th style="text-align:left;padding:6px 8px;border:1px solid var(--border);">cuatrimestre</th><th style="text-align:left;padding:6px 8px;border:1px solid var(--border);">nota cursado</th><th style="text-align:left;padding:6px 8px;border:1px solid var(--border);">f. final</th><th style="text-align:left;padding:6px 8px;border:1px solid var(--border);">nota final</th><th style="text-align:left;padding:6px 8px;border:1px solid var(--border);">libro</th><th style="text-align:left;padding:6px 8px;border:1px solid var(--border);">folio</th></tr>
+          </table>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="descargarPlantillaMaterias()">Descargar plantilla .xlsx</button>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">2. Subí el archivo</div>
+          <div id="drop-zone-mat" onclick="document.getElementById('excel-input-mat').click()"
+               style="border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;"
+               ondragover="event.preventDefault();this.style.borderColor='var(--accent)';"
+               ondragleave="this.style.borderColor='var(--border)';"
+               ondrop="handleExcelDropMat(event)">
+            <svg width="32" height="32" fill="none" stroke="var(--text3)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 10px;display:block;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <p style="font-size:13px;color:var(--text3);">Arrastrá el Excel acá o hacé clic para seleccionar</p>
+          </div>
+          <input type="file" id="excel-input-mat" accept=".xlsx,.xls" style="display:none;" onchange="handleExcelInputMat(event)">
+        </div>
+
+        <div class="card" id="preview-masiva-mat" style="display:none;margin-bottom:16px;">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>3. Revisá y confirmá</span>
+            <span id="preview-resumen-mat" style="font-size:12px;color:var(--text3);font-weight:400;"></span>
+          </div>
+          <div id="preview-errores-mat" style="display:none;background:rgba(184,50,50,0.06);border:1px solid rgba(184,50,50,0.2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--danger);margin-bottom:14px;"></div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;font-size:13px;">
+              <thead><tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:8px;">#</th><th style="text-align:left;padding:8px;">DNI</th><th style="text-align:left;padding:8px;">Estudiante</th><th style="text-align:left;padding:8px;">Materia</th><th style="text-align:left;padding:8px;">Tipo</th><th style="text-align:left;padding:8px;">Estado</th></tr></thead>
+              <tbody id="preview-tbody-mat"></tbody>
+            </table>
+          </div>
+          <div class="btn-row" style="margin-top:14px;">
+            <button class="btn btn-success" id="btn-importar-mat" onclick="importarMasivoMaterias()">Importar</button>
+            <button class="btn btn-ghost" onclick="resetImportMat()">Cancelar</button>
+          </div>
+        </div>
+
+        <div class="card" id="resultado-masiva-mat" style="display:none;">
+          <div class="card-title">Resultado de la importación</div>
+          <div id="resultado-detalle-mat"></div>
         </div>
       </div>
     </div>
@@ -2343,7 +2401,7 @@ async function importarMasivo() {
   document.getElementById('btn-importar').disabled = true;
   mostrarCargando(true);
 
-  let estOk=0, estExistente=0, estFail=[], matOk=0, matFail=[];
+  let estOk=0, estExistente=0, estFail=[], matOk=0, matSkip=0, matFail=[];
 
   for (const d of validos) {
     let estId = null;
@@ -2381,7 +2439,7 @@ async function importarMasivo() {
         if (!mod) { matFail.push({ nombre: d.nombre, mat: m.materia, error: 'Materia no encontrada en el plan' }); continue; }
 
         // Si el módulo ya está cargado para este estudiante, saltearlo
-        if (modsYaCargados.has(mod)) continue;
+        if (modsYaCargados.has(mod)) { matSkip++; continue; }
 
         const fCurs = fechaParaSB(m.fCursado);
         const fFin  = fechaParaSB(m.fFinal);
@@ -2427,8 +2485,12 @@ async function importarMasivo() {
         <div style="font-size:28px;font-weight:700;color:var(--accent);">${estExistente}</div>
       </div>
       <div style="background:rgba(26,122,82,0.08);border:1px solid rgba(26,122,82,0.2);border-radius:8px;padding:14px 20px;flex:1;min-width:120px;">
-        <div style="font-size:11px;font-family:var(--mono);color:var(--success);text-transform:uppercase;margin-bottom:4px;">Materias</div>
+        <div style="font-size:11px;font-family:var(--mono);color:var(--success);text-transform:uppercase;margin-bottom:4px;">Materias nuevas</div>
         <div style="font-size:28px;font-weight:700;color:var(--success);">${matOk}</div>
+      </div>
+      <div style="background:rgba(122,138,160,0.08);border:1px solid rgba(122,138,160,0.2);border-radius:8px;padding:14px 20px;flex:1;min-width:120px;">
+        <div style="font-size:11px;font-family:var(--mono);color:var(--text3);text-transform:uppercase;margin-bottom:4px;">Ya estaban cargadas</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text3);">${matSkip}</div>
       </div>
       ${estFail.length||matFail.length ? `<div style="background:rgba(184,50,50,0.07);border:1px solid rgba(184,50,50,0.2);border-radius:8px;padding:14px 20px;flex:1;min-width:120px;">
         <div style="font-size:11px;font-family:var(--mono);color:var(--danger);text-transform:uppercase;margin-bottom:4px;">Errores</div>
@@ -2444,7 +2506,7 @@ async function importarMasivo() {
 
   document.getElementById('preview-masiva').style.display = 'none';
   document.getElementById('resultado-masiva').style.display = 'block';
-  showToast(`${estOk} estudiante${estOk!==1?'s':''} y ${matOk} materia${matOk!==1?'s':''} importadas`);
+  showToast(`✓ ${estOk} estudiante${estOk!==1?'s':''} nuevo${estOk!==1?'s':''} · ${matOk} materia${matOk!==1?'s':''} nueva${matOk!==1?'s':''}${matSkip?' · '+matSkip+' ya estaban cargadas':''}`);
 }
 
 function cancelarImport() {
@@ -2760,6 +2822,199 @@ function limpiarFormMateria() {
   modoEdicion = null;
   const banner = document.getElementById('edicion-banner');
   if (banner) banner.style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CARGA MASIVA DE MATERIAS (regularidades / finales) — solo estudiantes existentes
+// ═══════════════════════════════════════════════════════════════════
+let datosImportMat = [];
+
+function descargarPlantillaMaterias() {
+  cargarSheetJS(() => {
+    const headers = ['dni','materia','f. cursado','cuatrimestre','nota cursado','f. final','nota final','libro','folio'];
+    const ejemplo = { dni:'40123456', materia:'Representación Gráfica', 'f. cursado':'', cuatrimestre:'', 'nota cursado':'', 'f. final':'06/07/2026', 'nota final':8, libro:'20', folio:'2' };
+    const ws = XLSX.utils.json_to_sheet([{},{},{}], { skipHeader: true });
+    XLSX.utils.sheet_add_aoa(ws, [
+      ['Carga masiva de materias — INSET Caleta Olivia'],
+      ['No modificar la fila 4 (encabezados). El estudiante debe ya existir (se busca por DNI).'],
+      [],
+      headers
+    ], { origin: 'A1' });
+    XLSX.utils.sheet_add_json(ws, [ejemplo], { header: headers, skipHeader: true, origin: 'A5' });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Carga masiva');
+    XLSX.writeFile(wb, 'plantilla_carga_masiva_materias_inset.xlsx');
+  });
+}
+
+function handleExcelDropMat(ev) {
+  ev.preventDefault();
+  ev.currentTarget.style.borderColor = 'var(--border)';
+  const file = ev.dataTransfer.files[0];
+  leerExcelMat(file);
+}
+function handleExcelInputMat(ev) {
+  leerExcelMat(ev.target.files[0]);
+}
+
+function leerExcelMat(file) {
+  if (!file) return;
+  cargarSheetJS(() => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const filas = XLSX.utils.sheet_to_json(ws, { defval: '', range: 3 });
+        procesarFilasMat(filas);
+      } catch(err) {
+        alert('No se pudo leer el archivo: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    const dz = document.getElementById('drop-zone-mat');
+    dz.innerHTML = `<svg width="28" height="28" fill="none" stroke="var(--success)" stroke-width="2" viewBox="0 0 24 24" style="margin:0 auto 10px;display:block;"><polyline points="20 6 9 17 4 12"/></svg><div style="font-size:14px;color:var(--success);font-weight:500;">${file.name}</div>`;
+  });
+}
+
+function procesarFilasMat(filas) {
+  if (!filas.length) { alert('El archivo está vacío o no tiene el formato correcto.'); return; }
+  const claves = Object.keys(filas[0]);
+  function leer(fila, ...keys) {
+    for (const k of keys) {
+      const found = claves.find(c => c.toLowerCase().replace(/[áéíóú]/g, a => ({á:'a',é:'e',í:'i',ó:'o',ú:'u'}[a]||a)) === k.toLowerCase());
+      if (found && normalizar(fila[found])) return normalizar(fila[found]);
+    }
+    return '';
+  }
+
+  datosImportMat = filas.map(fila => {
+    const dni       = leer(fila, 'dni').replace(/\D/g,'');
+    const materia   = leer(fila, 'materia');
+    const fCursado  = fechaParaSB(leer(fila, 'f. cursado','fecha cursado','fecha de cursado'));
+    const cuatri    = leer(fila, 'cuatrimestre') || null;
+    const notaCurs  = leer(fila, 'nota cursado','nota de cursado');
+    const fFinal    = fechaParaSB(leer(fila, 'f. final','fecha final','fecha de final'));
+    const notaFinal = leer(fila, 'nota final','nota');
+    const libro     = leer(fila, 'libro','n° libro') || null;
+    const folio     = leer(fila, 'folio','acta','n° acta') || null;
+
+    const errores = [];
+    const est = estudiantes.find(e => e.dni && String(e.dni).replace(/\D/g,'') === dni);
+    if (!dni) errores.push('falta DNI');
+    else if (!est) errores.push('DNI no encontrado — el estudiante debe estar cargado antes');
+    if (!materia) errores.push('falta materia');
+
+    let mod = null, tipoCarga = null;
+    if (est && materia) {
+      mod = modPorNombre(materia, est.carrera);
+      if (!mod) errores.push(`materia "${materia}" no coincide con el plan de ${est.carrera}`);
+    }
+    if (fFinal && notaFinal) tipoCarga = 'Final';
+    else if (fCursado) tipoCarga = 'Regularidad';
+    else errores.push('no tiene fecha de cursado ni fecha+nota de final');
+
+    return { dni, nombre: est?est.nombre:'(no encontrado)', estudianteId: est?est.id:null, carrera: est?est.carrera:null,
+             materia, mod, fCursado, cuatri, notaCurs, fFinal, notaFinal, libro, folio, tipoCarga, errores };
+  });
+
+  const validos = datosImportMat.filter(d => d.errores.length === 0);
+  const conErr   = datosImportMat.filter(d => d.errores.length > 0);
+
+  document.getElementById('preview-resumen-mat').textContent =
+    `${validos.length} válidas · ${conErr.length} con errores`;
+
+  const errDiv = document.getElementById('preview-errores-mat');
+  if (conErr.length) {
+    errDiv.style.display = 'block';
+    errDiv.innerHTML = '<b>Con errores (no se importarán):</b><br>' +
+      conErr.map(d => `Fila DNI ${d.dni||'?'} — ${d.materia||'?'}: ${d.errores.join(', ')}`).join('<br>');
+  } else {
+    errDiv.style.display = 'none';
+  }
+
+  document.getElementById('preview-tbody-mat').innerHTML = datosImportMat.map((d,i) => `
+    <tr style="opacity:${d.errores.length===0?'1':'0.4'}">
+      <td style="padding:6px 8px;">${i+1}</td>
+      <td style="padding:6px 8px;">${d.dni||'—'}</td>
+      <td style="padding:6px 8px;">${d.nombre}</td>
+      <td style="padding:6px 8px;">${d.materia||'—'}</td>
+      <td style="padding:6px 8px;">${d.tipoCarga||'—'}</td>
+      <td style="padding:6px 8px;">${d.errores.length===0 ? '<span class="badge badge-success">✓ OK</span>' : '<span class="badge badge-danger">✗ Error</span>'}</td>
+    </tr>`).join('');
+
+  const btn = document.getElementById('btn-importar-mat');
+  btn.textContent = validos.length ? `Importar ${validos.length} registro${validos.length!==1?'s':''}` : 'Sin registros válidos';
+  btn.disabled = validos.length === 0;
+
+  document.getElementById('preview-masiva-mat').style.display = 'block';
+  document.getElementById('resultado-masiva-mat').style.display = 'none';
+}
+
+async function importarMasivoMaterias() {
+  const validos = datosImportMat.filter(d => d.errores.length === 0);
+  if (!validos.length) return;
+
+  mostrarCargando(true);
+  let nuevas = 0, actualizadas = 0;
+  const fail = [];
+
+  for (const d of validos) {
+    const yaExistia = registros.some(r => r.estudianteId === d.estudianteId && r.mod === d.mod);
+
+    const reg = {
+      estudiante_id: d.estudianteId,
+      mod: d.mod,
+      estado: d.tipoCarga === 'Final' ? 'aprobada' : 'regular',
+      fecha_cursado: d.fCursado,
+      cuatrimestre: d.cuatri,
+      nota_cursado: d.notaCurs || null,
+      fecha_final: d.fFinal,
+      nota: d.notaFinal || null,
+      libro: d.libro,
+      folio: d.folio
+    };
+    try {
+      const resultado = await sbUpsert('registros', reg, 'estudiante_id,mod');
+      const fila = Array.isArray(resultado) ? resultado[0] : resultado;
+      registros = registros.filter(r => !(r.estudianteId === d.estudianteId && r.mod === d.mod));
+      registros.push({ ...fila, estudianteId: d.estudianteId });
+      if (yaExistia) actualizadas++; else nuevas++;
+    } catch(e) {
+      fail.push({ nombre: d.nombre, mat: d.materia, error: e.message });
+    }
+  }
+
+  document.getElementById('resultado-detalle-mat').innerHTML = `
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;">
+      <div style="background:rgba(26,122,82,0.08);border:1px solid rgba(26,122,82,0.2);border-radius:8px;padding:14px 20px;flex:1;min-width:120px;">
+        <div style="font-size:11px;font-family:var(--mono);color:var(--success);text-transform:uppercase;margin-bottom:4px;">Nuevas</div>
+        <div style="font-size:28px;font-weight:700;color:var(--success);">${nuevas}</div>
+      </div>
+      <div style="background:rgba(26,79,138,0.08);border:1px solid rgba(26,79,138,0.2);border-radius:8px;padding:14px 20px;flex:1;min-width:120px;">
+        <div style="font-size:11px;font-family:var(--mono);color:var(--accent);text-transform:uppercase;margin-bottom:4px;">Actualizadas</div>
+        <div style="font-size:28px;font-weight:700;color:var(--accent);">${actualizadas}</div>
+      </div>
+      ${fail.length ? `<div style="background:rgba(184,50,50,0.07);border:1px solid rgba(184,50,50,0.2);border-radius:8px;padding:14px 20px;flex:1;min-width:120px;">
+        <div style="font-size:11px;font-family:var(--mono);color:var(--danger);text-transform:uppercase;margin-bottom:4px;">Errores</div>
+        <div style="font-size:28px;font-weight:700;color:var(--danger);">${fail.length}</div>
+      </div>` : ''}
+    </div>
+    ${fail.length ? `<div style="font-size:12px;color:var(--danger);margin-bottom:12px;"><b>No se pudieron cargar:</b><br>${fail.map(f=>`• ${f.nombre} — ${f.mat}: ${f.error}`).join('<br>')}</div>` : ''}
+    <button class="btn btn-ghost" onclick="resetImportMat()">Nueva importación</button>`;
+
+  document.getElementById('preview-masiva-mat').style.display = 'none';
+  document.getElementById('resultado-masiva-mat').style.display = 'block';
+  showToast(`✓ ${nuevas} nueva${nuevas!==1?'s':''} · ${actualizadas} actualizada${actualizadas!==1?'s':''}${fail.length?' · '+fail.length+' con error':''}`);
+  mostrarCargando(false);
+}
+
+function resetImportMat() {
+  datosImportMat = [];
+  document.getElementById('preview-masiva-mat').style.display = 'none';
+  document.getElementById('resultado-masiva-mat').style.display = 'none';
+  document.getElementById('excel-input-mat').value = '';
+  document.getElementById('drop-zone-mat').innerHTML = `<svg width="32" height="32" fill="none" stroke="var(--text3)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 10px;display:block;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p style="font-size:13px;color:var(--text3);">Arrastrá el Excel acá o hacé clic para seleccionar</p>`;
 }
 
 async function eliminarRegistro(estudianteId, mod) {
