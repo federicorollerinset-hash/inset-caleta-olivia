@@ -359,15 +359,15 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
         <div class="card-title">Solicitar constancia</div>
         <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Seleccioná el tipo. El tiempo de emisión es de 48 a 72 hs hábiles.</p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;" class="const-btn-grid">
-          <button class="const-btn" onclick="solicitarConstancia('alumno_regular')">
+          <button class="const-btn" onclick="abrirConstanciaGeneral('alumno_regular')">
             <span style="font-size:13px;font-weight:500;">Alumno/a regular</span>
             <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
-          <button class="const-btn" onclick="solicitarConstancia('inscripcion')">
+          <button class="const-btn" onclick="abrirConstanciaGeneral('inscripcion')">
             <span style="font-size:13px;font-weight:500;">Constancia de inscripción</span>
             <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
-          <button class="const-btn" onclick="solicitarConstancia('materias_aprobadas')">
+          <button class="const-btn" onclick="abrirConstanciaGeneral('materias_aprobadas')">
             <span style="font-size:13px;font-weight:500;">Materias aprobadas</span>
             <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
@@ -375,10 +375,84 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
             <span style="font-size:13px;font-weight:500;">Certificado de escolaridad</span>
             <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
-          <button class="const-btn" onclick="solicitarConstancia('otra')">
+          <button class="const-btn" onclick="abrirConstanciaGeneral('examen_por_rendir')">
+            <span style="font-size:13px;font-weight:500;">Certificado de examen por rendir</span>
+            <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="const-btn" onclick="abrirConstanciaGeneral('examen_rendido')">
+            <span style="font-size:13px;font-weight:500;">Certificado de examen rendido</span>
+            <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button class="const-btn" onclick="abrirConstanciaGeneral('otra')">
             <span style="font-size:13px;font-weight:500;">Otra (especificar)</span>
             <svg width="14" height="14" fill="none" stroke="var(--text3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
+        </div>
+
+        <!-- FORMULARIO GENERAL DE CONSTANCIAS -->
+        <div id="form-general" style="display:none;margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:18px;">
+          <div id="form-general-title" style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:14px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;">Datos adicionales</div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Apellido y nombre</label>
+            <input type="text" id="gen-nombre" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>DNI</label>
+            <input type="text" id="gen-dni" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Edad</label>
+            <input type="number" id="gen-edad" placeholder="Ej: 22" min="15" max="99" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Carrera</label>
+            <select id="gen-carrera" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+              <option value="GRE">Generación y Redes Eléctricas</option>
+              <option value="MI">Mantenimiento Industrial</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Año</label>
+            <select id="gen-anio" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+              <option value="1">1° año</option>
+              <option value="2">2° año</option>
+            </select>
+          </div>
+
+          <div id="form-general-examen" style="display:none;">
+            <div style="font-size:12px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;margin:14px 0 10px;">Datos del examen</div>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label>Tipo de examen</label>
+              <select id="gen-tipoexamen" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+                <option value="Final">Final</option>
+                <option value="Parcial">Parcial</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label>Materia</label>
+              <input type="text" id="gen-materia" placeholder="Ej: Máquinas Eléctricas" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label>Año del examen</label>
+              <input type="text" id="gen-anioexamen" placeholder="Ej: 2026" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label>Fecha del examen</label>
+              <input type="date" id="gen-fechaexamen" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+            </div>
+          </div>
+
+          <div id="form-general-otra" style="display:none;">
+            <div class="form-group" style="margin-bottom:12px;">
+              <label>Especificar</label>
+              <input type="text" id="gen-otra-detalle" placeholder="¿Qué necesitás?" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:4px;">
+            <button class="btn btn-primary" onclick="enviarConstanciaGeneral()">Solicitar certificado</button>
+            <button class="btn btn-ghost" onclick="cerrarConstanciaGeneral()">Cancelar</button>
+          </div>
         </div>
 
         <!-- FORMULARIO CERTIFICADO DE ESCOLARIDAD -->
@@ -1196,7 +1270,7 @@ async function cargarConstancias() {
     const lista = await sbGet('constancias', `estudiante_id=eq.${sesion.estudiante.id}&order=created_at.desc`);
     if (!lista.length) { cont.innerHTML='<p style="color:var(--text3);font-size:13px;">No tenés solicitudes todavía.</p>'; return; }
     const em = {pendiente:['badge-warning','Pendiente'],en_proceso:['badge-info','En proceso'],lista:['badge-success','Lista para retirar']};
-    const tm = {alumno_regular:'Alumno/a regular',inscripcion:'Inscripción',materias_aprobadas:'Materias aprobadas',escolaridad:'Certificado de escolaridad',otra:'Otra'};
+    const tm = {alumno_regular:'Alumno/a regular',inscripcion:'Inscripción',materias_aprobadas:'Materias aprobadas',escolaridad:'Certificado de escolaridad',otra:'Otra',examen_por_rendir:'Certificado de examen por rendir',examen_rendido:'Certificado de examen rendido'};
     cont.innerHTML = lista.map(c=>{
       const [cls,txt]=em[c.estado]||['badge-neutral',c.estado];
       const f=new Date(c.created_at).toLocaleDateString('es-AR',{day:'2-digit',month:'short',year:'numeric'});
@@ -1394,22 +1468,36 @@ async function renderCursado() {
       if (!disponibles.length) {
         html += `<div class="alert alert-info" style="font-size:12px;">No tenés materias disponibles para inscribirte en este período: ya estás cursando o aprobaste las de este cuatrimestre, o te faltan correlativas regularizadas.</div>`;
       } else {
-        html += `<p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Seleccioná las materias en las que querés inscribirte:</p>
-          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
-            ${disponibles.map(m => {
-              const yaInscripto = modsInscripto.has(m.mod);
-              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);">
+        const pendientes = disponibles.filter(m => !modsInscripto.has(m.mod));
+        const yaInscriptas = disponibles.filter(m => modsInscripto.has(m.mod));
+
+        if (pendientes.length) {
+          html += `<p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Seleccioná las materias en las que querés inscribirte:</p>
+            <div id="cursado-sel-${p.id}" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+              ${pendientes.map(m => `
+                <div class="sel-row" data-mod="${m.mod}" onclick="toggleSel(this)">
+                  <div class="sel-check">✓</div>
+                  <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:500;">${m.nombre}</div>
+                    <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mód. ${m.mod} · ${m.dur}</div>
+                  </div>
+                </div>`).join('')}
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="confirmarCursado('${p.id}','${est.carrera}',this)">Confirmar inscripción</button>`;
+        }
+
+        if (yaInscriptas.length) {
+          html += `<div style="display:flex;flex-direction:column;gap:8px;margin-top:${pendientes.length?'14px':'0'};">
+            ${yaInscriptas.map(m => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);">
                 <div>
                   <div style="font-size:13px;font-weight:500;">${m.nombre}</div>
                   <div style="font-size:11px;color:var(--text3);margin-top:2px;">Mód. ${m.mod} · ${m.dur}</div>
                 </div>
-                ${yaInscripto
-                  ? `<button class="btn btn-sm" style="background:rgba(184,50,50,0.08);border:1px solid rgba(184,50,50,0.25);color:var(--danger);" onclick="bajaInscripcionCursado('${p.id}',${m.mod})">✓ Inscripto — Dar de baja</button>`
-                  : `<button class="btn btn-ghost btn-sm" onclick="inscribirseCursado('${p.id}',${m.mod},'${est.carrera}',this)">Inscribirme</button>`
-                }
-              </div>`;
-            }).join('')}
+                <button class="btn btn-sm" style="background:rgba(184,50,50,0.08);border:1px solid rgba(184,50,50,0.25);color:var(--danger);" onclick="bajaInscripcionCursado('${p.id}',${m.mod})">✓ Inscripto — Dar de baja</button>
+              </div>`).join('')}
           </div>`;
+        }
       }
       html += `</div>`;
     }
@@ -1437,16 +1525,29 @@ async function renderCursado() {
   }
 }
 
-async function inscribirseCursado(periodoId, mod, carrera, btn) {
+async function confirmarCursado(periodoId, carrera, btn) {
+  const cont = document.getElementById(`cursado-sel-${periodoId}`);
+  const selRows = cont.querySelectorAll('.sel-row.selected');
+  if (!selRows.length) { showToast('Seleccioná al menos una materia'); return; }
+
   btn.disabled = true;
   try {
-    await sbPost('inscripciones_cursado', { estudiante_id: sesion.estudiante.id, periodo_id: periodoId, mod, carrera, estado: 'inscripto' });
-    const mat = getPlan(carrera).find(m => m.mod === mod);
+    const mods = Array.from(selRows).map(r => parseInt(r.dataset.mod, 10));
+    const plan = getPlan(carrera);
+
+    // Inserta una inscripción por materia
+    for (const mod of mods) {
+      await sbPost('inscripciones_cursado', { estudiante_id: sesion.estudiante.id, periodo_id: periodoId, mod, carrera, estado: 'inscripto' });
+    }
+
+    // Un solo aviso/mail agrupando todas las materias elegidas
+    const nombres = mods.map(mod => plan.find(m => m.mod === mod)?.nombre || 'Módulo '+mod);
     await guardarSolicitud(
       'Inscripción a cursado',
-      `Materia: ${mat?.nombre || 'Módulo '+mod}`
+      `Materias: ${nombres.join(', ')}`
     );
-    showToast('Inscripción confirmada ✓ — Secretaría fue notificada');
+
+    showToast(`Inscripción confirmada ✓ (${mods.length} materia${mods.length>1?'s':''}) — Secretaría fue notificada`);
     renderCursado();
   } catch(e) { alert('Error: '+e.message); btn.disabled = false; }
 }
@@ -1478,10 +1579,6 @@ async function confirmarMesa() {
     showToast(`Inscripción enviada: ${materias.join(', ')} ✓`);
     selRows.forEach(r=>r.classList.remove('selected'));
   } catch(e) { alert('Error: '+e.message); }
-}
-
-async function confirmarCursado() {
-  // Esta función ya no se usa — reemplazada por inscribirseCursado()
 }
 
 // ─── MI CUENTA ────────────────────────────────────────────────────
@@ -1533,16 +1630,101 @@ function cerrarEscolaridad() {
   document.getElementById('form-escolaridad').style.display = 'none';
   ['esc-edad','esc-tutor-nombre','esc-tutor-dni','esc-destino'].forEach(id => document.getElementById(id).value = '');
 }
-async function solicitarConstancia(tipo) {
-  const tipoLabel = { alumno_regular:'Alumno/a regular', inscripcion:'Inscripción', materias_aprobadas:'Materias aprobadas', escolaridad:'Certificado de escolaridad', otra:'Otra' };
-  if (!confirm(`¿Confirmar solicitud de constancia: ${tipoLabel[tipo]||tipo}?`)) return;
+// ─── FORMULARIO GENERAL DE CONSTANCIAS ────────────────────────────
+const TIPO_LABEL_CONST = {
+  alumno_regular:     'Alumno/a regular',
+  inscripcion:         'Constancia de inscripción',
+  materias_aprobadas:  'Materias aprobadas',
+  otra:                'Otra',
+  examen_por_rendir:   'Certificado de examen por rendir',
+  examen_rendido:      'Certificado de examen rendido',
+  escolaridad:         'Certificado de escolaridad',
+};
+
+let constanciaGeneralTipo = null;
+
+function abrirConstanciaGeneral(tipo) {
+  constanciaGeneralTipo = tipo;
+  const est = sesion.estudiante;
+
+  document.getElementById('form-general-title').textContent = 'Datos adicionales — ' + (TIPO_LABEL_CONST[tipo] || tipo);
+  document.getElementById('gen-nombre').value  = est.nombre || '';
+  document.getElementById('gen-dni').value     = est.dni || '';
+  document.getElementById('gen-edad').value    = '';
+  document.getElementById('gen-carrera').value = est.carrera || 'GRE';
+  document.getElementById('gen-anio').value    = '1';
+
+  const esExamen = tipo === 'examen_por_rendir' || tipo === 'examen_rendido';
+  document.getElementById('form-general-examen').style.display = esExamen ? 'block' : 'none';
+  if (esExamen) {
+    document.getElementById('gen-tipoexamen').value  = 'Final';
+    document.getElementById('gen-materia').value     = '';
+    document.getElementById('gen-anioexamen').value  = '';
+    document.getElementById('gen-fechaexamen').value = '';
+  }
+
+  const esOtra = tipo === 'otra';
+  document.getElementById('form-general-otra').style.display = esOtra ? 'block' : 'none';
+  if (esOtra) document.getElementById('gen-otra-detalle').value = '';
+
+  document.getElementById('form-general').style.display = 'block';
+  document.getElementById('form-general').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cerrarConstanciaGeneral() {
+  document.getElementById('form-general').style.display = 'none';
+  constanciaGeneralTipo = null;
+}
+
+async function enviarConstanciaGeneral() {
+  const tipo = constanciaGeneralTipo;
+  if (!tipo) return;
+
+  const nombre  = document.getElementById('gen-nombre').value.trim();
+  const dni     = document.getElementById('gen-dni').value.trim();
+  const edad    = document.getElementById('gen-edad').value.trim();
+  const carrera = document.getElementById('gen-carrera').value;
+  const anio    = document.getElementById('gen-anio').value;
+
+  if (!nombre || !dni || !edad) { alert('Completá apellido y nombre, DNI y edad.'); return; }
+
+  const carreraLabel = carrera === 'GRE' ? 'Generación y Redes Eléctricas' : 'Mantenimiento Industrial';
+  const datos = { nombre, dni, edad, carrera, anio };
+  let detalle = `${nombre} · DNI ${dni} · ${edad} años · ${carreraLabel} · ${anio}° año`;
+
+  const esExamen = tipo === 'examen_por_rendir' || tipo === 'examen_rendido';
+  if (esExamen) {
+    const tipoExamen  = document.getElementById('gen-tipoexamen').value;
+    const materia     = document.getElementById('gen-materia').value.trim();
+    const anioExamen  = document.getElementById('gen-anioexamen').value.trim();
+    const fechaExamen = document.getElementById('gen-fechaexamen').value;
+    if (!materia || !fechaExamen) { alert('Completá la materia y la fecha del examen.'); return; }
+    Object.assign(datos, { tipoExamen, materia, anioExamen, fechaExamen });
+    const fechaF = new Date(fechaExamen + 'T12:00').toLocaleDateString('es-AR');
+    detalle += ` · ${tipoExamen} de ${materia} · Año ${anioExamen || '—'} · Fecha ${fechaF}`;
+  }
+
+  if (tipo === 'otra') {
+    const especificar = document.getElementById('gen-otra-detalle').value.trim();
+    if (!especificar) { alert('Especificá qué necesitás.'); return; }
+    datos.especificar = especificar;
+    detalle += ` · Detalle: ${especificar}`;
+  }
+
   try {
-    await sbPost('constancias', { estudiante_id: sesion.estudiante.id, tipo, estado: 'pendiente' });
-    await guardarSolicitud('Constancia — ' + (tipoLabel[tipo]||tipo), `Tipo: ${tipoLabel[tipo]||tipo}`);
+    await sbPost('constancias', {
+      estudiante_id: sesion.estudiante.id,
+      tipo,
+      estado: 'pendiente',
+      datos: JSON.stringify(datos)
+    });
+    await guardarSolicitud('Constancia — ' + (TIPO_LABEL_CONST[tipo] || tipo), detalle);
     showToast('Solicitud enviada ✓ — Secretaría fue notificada');
+    cerrarConstanciaGeneral();
     cargarConstancias();
   } catch(e) { alert('Error: ' + e.message); }
 }
+
 async function enviarEscolaridad() {
   const edad        = document.getElementById('esc-edad').value.trim();
   const tutorNombre = document.getElementById('esc-tutor-nombre').value.trim();
@@ -1566,9 +1748,9 @@ async function enviarEscolaridad() {
 // ─── EXPONER FUNCIONES AL WINDOW (requerido por type="module") ────
 Object.assign(window, {
   doLogin, doPrimerIngreso, doRecuperar, showScreen, showTab,
-  cerrarSesion, filtrarHist, solicitarConstancia, abrirConstanciaEscolaridad,
+  cerrarSesion, filtrarHist, abrirConstanciaGeneral, cerrarConstanciaGeneral, enviarConstanciaGeneral, abrirConstanciaEscolaridad,
   cerrarEscolaridad, enviarEscolaridad, inscribirseMesa, darBajaMesa,
-  inscribirseCursado, bajaInscripcionCursado, cambiarPassword, actualizarEmail,
+  bajaInscripcionCursado, cambiarPassword, actualizarEmail,
   toggleSel, confirmarMesa, confirmarCursado, toggleSidebar, closeSidebar
 });
 </script>
