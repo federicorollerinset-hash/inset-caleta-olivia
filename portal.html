@@ -1371,11 +1371,14 @@ async function renderCursado() {
       // Determinar qué materias se pueden cursar en este cuatrimestre
       const durPermitidas = p.cuatrimestre === '1C' ? ['Anual','1° Cuatrimestre'] : ['2° Cuatrimestre'];
       
-      // Materias del plan que corresponden a este cuatrimestre, no cursando ni aprobadas
+      // Materias del plan que corresponden a este cuatrimestre, no cursando ni aprobadas,
+      // y con todas sus correlativas regularizadas o aprobadas
+      const habilitantes = [...new Set([...s.aprobadasTotal, ...s.regulares])];
       const disponibles = plan.filter(m =>
         durPermitidas.includes(m.dur) &&
         !s.aprobadasTotal.includes(m.mod) &&
-        !s.regulares.includes(m.mod)
+        !s.regulares.includes(m.mod) &&
+        m.corr.every(c => habilitantes.includes(c))
       );
 
       const cierreF = new Date(p.cierre_inscripcion).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -1389,7 +1392,7 @@ async function renderCursado() {
         </div>`;
 
       if (!disponibles.length) {
-        html += `<div class="alert alert-info" style="font-size:12px;">Ya estás cursando o aprobaste todas las materias de este cuatrimestre.</div>`;
+        html += `<div class="alert alert-info" style="font-size:12px;">No tenés materias disponibles para inscribirte en este período: ya estás cursando o aprobaste las de este cuatrimestre, o te faltan correlativas regularizadas.</div>`;
       } else {
         html += `<p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Seleccioná las materias en las que querés inscribirte:</p>
           <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
