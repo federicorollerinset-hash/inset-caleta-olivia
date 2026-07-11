@@ -14,6 +14,8 @@
   --text: #0f1a2e; --text2: #3a4a62; --text3: #7a8aa0;
   --mono: 'Inter', sans-serif; --sans: 'Inter', sans-serif;
   --radius: 10px;
+  --sidebar-bg: #0f2444; --sidebar-bg2: #162f55; --sidebar-border: #1e3d6e;
+  --sidebar-text: #a8c0e0; --sidebar-text2: #6a90b8;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; min-height: 100vh; }
@@ -28,16 +30,19 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
 
 /* ── PORTAL PRINCIPAL ────────────────────────── */
 .portal-wrap { display: none; min-height: 100vh; flex-direction: column; }
-.portal-header { background: var(--accent); color: white; padding: 0 24px; display: flex; align-items: center; gap: 16px; height: 56px; }
-.portal-header-title { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; flex: 1; }
+.portal-header { background: var(--sidebar-bg); color: white; padding: 0 20px; display: flex; align-items: center; gap: 14px; height: 56px; flex-shrink: 0; }
+.portal-header-title { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; flex: 1; color: #ffffff; }
 .portal-header-user { font-size: 13px; opacity: 0.85; }
-.portal-header-btn { background: rgba(255,255,255,0.15); border: none; color: white; font-size: 12px; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-family: var(--sans); }
-.portal-header-btn:hover { background: rgba(255,255,255,0.25); }
-.portal-nav { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; gap: 2px; overflow-x: auto; }
-.nav-tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 14px 16px; font-size: 13px; color: var(--text2); cursor: pointer; font-family: var(--sans); white-space: nowrap; transition: all 0.15s; }
-.nav-tab:hover { color: var(--text); }
-.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+.portal-header-btn { background: rgba(255,255,255,0.12); border: none; color: white; font-size: 12px; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-family: var(--sans); }
+.portal-header-btn:hover { background: rgba(255,255,255,0.22); }
 .portal-content { padding: 28px 24px; max-width: 900px; width: 100%; margin: 0 auto; }
+
+/* ── SUBNAV (pills dentro de una sección agrupada) ─── */
+.subnav { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+.subnav-pill { background: var(--bg2); border: 1px solid var(--border); color: var(--text2); padding: 8px 16px; border-radius: 20px; font-size: 13px; font-family: var(--sans); cursor: pointer; transition: all 0.15s; }
+.subnav-pill:hover { border-color: var(--accent); color: var(--text); }
+.subnav-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+.subpane { display: none; }
 
 /* ── FORM ────────────────────────────────────── */
 .form-group { margin-bottom: 16px; }
@@ -109,28 +114,29 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
 .const-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; background: var(--bg2); width: 100%; text-align: left; font-family: var(--sans); transition: border-color 0.15s; }
 .const-btn:hover { border-color: var(--accent); }
 
-/* ── HAMBURGER MENU (mobile) ──────────────────── */
-.hamburger { display: none; background: none; border: none; cursor: pointer; padding: 8px; flex-direction: column; gap: 5px; flex-shrink: 0; }
+/* ── SIDEBAR / HAMBURGER MENU (drawer, escritorio y mobile) ──── */
+.hamburger { display: flex; background: none; border: none; cursor: pointer; padding: 8px; flex-direction: column; gap: 5px; flex-shrink: 0; }
 .hamburger span { display: block; width: 20px; height: 2px; background: #fff; border-radius: 2px; transition: all 0.2s; }
 .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99; }
 .sidebar-overlay.open { display: block; }
 
-@media (max-width: 768px) {
-  .hamburger { display: flex; }
-  .portal-nav {
-    position: fixed; top: 0; left: -270px; width: 270px; height: 100vh;
-    flex-direction: column; align-items: stretch; gap: 0;
-    background: var(--bg2); border-right: 1px solid var(--border); border-bottom: none;
-    padding: 16px 0; overflow-y: auto; overflow-x: visible;
-    z-index: 100; transition: left 0.25s ease;
-  }
-  .portal-nav.open { left: 0; }
-  .portal-nav .nav-tab {
-    border-bottom: none; border-left: 3px solid transparent;
-    text-align: left; padding: 13px 20px; font-size: 14px; min-height: 44px;
-  }
-  .portal-nav .nav-tab.active { border-bottom-color: transparent; border-left-color: var(--accent); background: rgba(26,79,138,0.06); }
+.portal-nav {
+  position: fixed; top: 0; left: -280px; width: 280px; height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border);
+  overflow-y: auto; z-index: 100; transition: left 0.25s ease;
 }
+.portal-nav.open { left: 0; }
+.portal-nav-header { padding: 22px 20px; border-bottom: 1px solid var(--sidebar-border); display: flex; align-items: center; gap: 12px; }
+.portal-nav-header img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.15); }
+.portal-nav-header .t1 { font-family: var(--mono); font-size: 12px; color: #fff; font-weight: 700; letter-spacing: 0.06em; }
+.portal-nav-header .t2 { font-size: 10px; color: var(--sidebar-text2); font-family: var(--mono); margin-top: 1px; }
+.nav-section { padding: 14px 12px; }
+.nav-label { font-size: 10px; color: var(--sidebar-text2); letter-spacing: 0.1em; text-transform: uppercase; font-family: var(--mono); padding: 0 12px; margin-bottom: 8px; }
+.nav-tab { width: 100%; text-align: left; background: none; border: none; border-radius: 7px; color: var(--sidebar-text); padding: 11px 12px; cursor: pointer; font-family: var(--sans); font-size: 14px; display: flex; align-items: center; gap: 10px; transition: all 0.15s; margin-bottom: 2px; }
+.nav-tab svg { width: 17px; height: 17px; flex-shrink: 0; }
+.nav-tab:hover { background: var(--sidebar-bg2); color: #ffffff; }
+.nav-tab.active { background: rgba(255,255,255,0.12); color: #ffffff; font-weight: 500; }
 
 @media (max-width: 600px) {
   .stats-grid { grid-template-columns: 1fr 1fr; }
@@ -139,7 +145,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
   .portal-header { padding: 0 14px; height: 52px; }
   .portal-header-title { font-size: 10px; }
   .portal-header-user { font-size: 12px; max-width: 110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .nav-tab { padding: 12px 10px; font-size: 12px; }
+  .nav-tab { padding: 13px 12px; font-size: 14px; min-height: 44px; }
   .card { padding: 14px 14px; }
   .stat-val { font-size: 22px; }
   .btn { padding: 11px 16px; font-size: 14px; min-height: 44px; }
@@ -155,6 +161,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
 @media (max-width: 380px) {
   .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .portal-content { padding: 10px; }
+  .portal-nav { width: 88vw; left: -88vw; }
 }
 @media (max-width: 600px) {
   .inicio-grid-res { grid-template-columns: 1fr !important; }
@@ -282,16 +289,41 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
   <div class="sidebar-overlay" id="portal-sidebar-overlay" onclick="closeSidebar()"></div>
 
   <div class="portal-nav" id="portal-nav">
-    <button class="nav-tab active" onclick="showTab('tab-inicio',this)">Inicio</button>
-    <button class="nav-tab" onclick="showTab('tab-trayectoria',this)">Mi trayectoria</button>
-    <button class="nav-tab" onclick="showTab('tab-historial',this)">Historial académico</button>
-    <button class="nav-tab" onclick="showTab('tab-legajo-est',this);cargarLegajoPortal()">Mi legajo</button>
-    <button class="nav-tab" onclick="showTab('tab-fechas',this)">Fechas importantes</button>
-    <button class="nav-tab" onclick="showTab('tab-novedades',this)">Novedades</button>
-    <button class="nav-tab" onclick="showTab('tab-constancias',this)">Constancias</button>
-    <button class="nav-tab" onclick="showTab('tab-mesa',this)">Inscripción a mesa</button>
-    <button class="nav-tab" onclick="showTab('tab-cursado',this)">Inscripción a cursado</button>
-    <button class="nav-tab" onclick="showTab('tab-cuenta',this)">Mi cuenta</button>
+    <div class="portal-nav-header">
+      <img src="data:image/jpeg;base64,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" alt="InSET Caleta Olivia">
+      <div>
+        <div class="t1">InSET</div>
+        <div class="t2">Sede Caleta Olivia</div>
+        <div class="t2">Portal estudiantil</div>
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Navegación</div>
+      <button class="nav-tab active" onclick="showTab('tab-inicio',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Inicio
+      </button>
+      <button class="nav-tab" onclick="openGroup('tab-trayectoria-group','tab-trayectoria',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        Mi trayectoria
+      </button>
+      <button class="nav-tab" onclick="openGroup('tab-novedades-group','tab-fechas',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Novedades y fechas
+      </button>
+      <button class="nav-tab" onclick="showTab('tab-constancias',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        Constancias
+      </button>
+      <button class="nav-tab" onclick="openGroup('tab-inscripciones-group','tab-mesa',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Inscripciones
+      </button>
+      <button class="nav-tab" onclick="showTab('tab-cuenta',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M6.5 19.5C7.5 17 9.5 15.5 12 15.5s4.5 1.5 5.5 4"/></svg>
+        Mi cuenta
+      </button>
+    </div>
   </div>
 
   <div class="portal-content">
@@ -319,38 +351,50 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
       </div>
     </div>
 
-    <!-- MI TRAYECTORIA -->
-    <div id="tab-trayectoria" class="tab-pane" style="display:none;">
-      <div id="tray-content"><p style="color:var(--text3);">Cargando...</p></div>
-    </div>
-
-    <!-- HISTORIAL ACADÉMICO -->
-    <div id="tab-historial" class="tab-pane" style="display:none;">
-      <div class="stats-grid" id="hist-stats"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-        <span style="font-size:13px;font-weight:500;flex:1;">Plan de estudios</span>
-        <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('todos',this)">Todas</button>
-        <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('aprobada',this)">Aprobadas</button>
-        <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('regular',this)">Regulares</button>
+    <!-- MI TRAYECTORIA (grupo: trayectoria + historial + legajo) -->
+    <div id="tab-trayectoria-group" class="tab-pane" style="display:none;">
+      <div class="subnav">
+        <button class="subnav-pill active" data-sub="tab-trayectoria" onclick="showSubTab('tab-trayectoria-group','tab-trayectoria',this)">Trayectoria</button>
+        <button class="subnav-pill" data-sub="tab-historial" onclick="showSubTab('tab-trayectoria-group','tab-historial',this)">Historial académico</button>
+        <button class="subnav-pill" data-sub="tab-legajo-est" onclick="showSubTab('tab-trayectoria-group','tab-legajo-est',this);cargarLegajoPortal()">Mi legajo</button>
       </div>
-      <div id="hist-lista"></div>
-    </div>
 
-    <!-- MI LEGAJO -->
-    <div id="tab-legajo-est" class="tab-pane" style="display:none;">
-      <div id="legajo-portal-cont">
-        <p style="color:var(--text3);">Cargando...</p>
+      <div id="tab-trayectoria" class="subpane" style="display:block;">
+        <div id="tray-content"><p style="color:var(--text3);">Cargando...</p></div>
+      </div>
+
+      <div id="tab-historial" class="subpane">
+        <div class="stats-grid" id="hist-stats"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <span style="font-size:13px;font-weight:500;flex:1;">Plan de estudios</span>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('todos',this)">Todas</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('aprobada',this)">Aprobadas</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('regular',this)">Regulares</button>
+        </div>
+        <div id="hist-lista"></div>
+      </div>
+
+      <div id="tab-legajo-est" class="subpane">
+        <div id="legajo-portal-cont">
+          <p style="color:var(--text3);">Cargando...</p>
+        </div>
       </div>
     </div>
 
-    <!-- FECHAS IMPORTANTES -->
-    <div id="tab-fechas" class="tab-pane" style="display:none;">
-      <div id="fechas-content"><p style="color:var(--text3);">Cargando...</p></div>
-    </div>
+    <!-- NOVEDADES Y FECHAS (grupo: fechas + novedades) -->
+    <div id="tab-novedades-group" class="tab-pane" style="display:none;">
+      <div class="subnav">
+        <button class="subnav-pill active" data-sub="tab-fechas" onclick="showSubTab('tab-novedades-group','tab-fechas',this)">Fechas importantes</button>
+        <button class="subnav-pill" data-sub="tab-novedades" onclick="showSubTab('tab-novedades-group','tab-novedades',this)">Novedades</button>
+      </div>
 
-    <!-- NOVEDADES -->
-    <div id="tab-novedades" class="tab-pane" style="display:none;">
-      <div id="novedades-content"><p style="color:var(--text3);">Cargando...</p></div>
+      <div id="tab-fechas" class="subpane" style="display:block;">
+        <div id="fechas-content"><p style="color:var(--text3);">Cargando...</p></div>
+      </div>
+
+      <div id="tab-novedades" class="subpane">
+        <div id="novedades-content"><p style="color:var(--text3);">Cargando...</p></div>
+      </div>
     </div>
 
     <!-- CONSTANCIAS -->
@@ -483,14 +527,20 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
       </div>
     </div>
 
-    <!-- INSCRIPCIÓN A MESA -->
-    <div id="tab-mesa" class="tab-pane" style="display:none;">
-      <div id="mesa-content"><p style="color:var(--text3);">Cargando...</p></div>
-    </div>
+    <!-- INSCRIPCIONES (grupo: mesa + cursado) -->
+    <div id="tab-inscripciones-group" class="tab-pane" style="display:none;">
+      <div class="subnav">
+        <button class="subnav-pill active" data-sub="tab-mesa" onclick="showSubTab('tab-inscripciones-group','tab-mesa',this)">Mesas de examen</button>
+        <button class="subnav-pill" data-sub="tab-cursado" onclick="showSubTab('tab-inscripciones-group','tab-cursado',this)">Cursado</button>
+      </div>
 
-    <!-- INSCRIPCIÓN A CURSADO -->
-    <div id="tab-cursado" class="tab-pane" style="display:none;">
-      <div id="cursado-content"><p style="color:var(--text3);">Cargando...</p></div>
+      <div id="tab-mesa" class="subpane" style="display:block;">
+        <div id="mesa-content"><p style="color:var(--text3);">Cargando...</p></div>
+      </div>
+
+      <div id="tab-cursado" class="subpane">
+        <div id="cursado-content"><p style="color:var(--text3);">Cargando...</p></div>
+      </div>
     </div>
 
     <!-- MI CUENTA -->
@@ -939,6 +989,22 @@ function showTab(id, btn) {
   closeSidebar();
 }
 
+// Abre un ítem del menú que agrupa varias secciones (ej: "Mi trayectoria")
+// y muestra su primera sub-sección por defecto.
+function openGroup(groupId, defaultSubId, groupBtn) {
+  showTab(groupId, groupBtn);
+  const defaultPill = document.querySelector('#' + groupId + ' .subnav-pill[data-sub="' + defaultSubId + '"]');
+  showSubTab(groupId, defaultSubId, defaultPill);
+}
+
+// Cambia de sub-sección dentro de un grupo (pills), sin afectar el resto del menú.
+function showSubTab(groupId, subId, btn) {
+  document.querySelectorAll('#' + groupId + ' .subpane').forEach(p => p.style.display='none');
+  document.getElementById(subId).style.display='block';
+  document.querySelectorAll('#' + groupId + ' .subnav-pill').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
 // ─── HAMBURGER MENU (mobile) ────────────────────────────────────────
 function toggleSidebar() {
   document.getElementById('portal-nav').classList.toggle('open');
@@ -997,7 +1063,7 @@ async function renderInicio() {
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(208,217,232,0.5);">
           <div style="flex:1;font-size:13px;color:var(--text);">${f.titulo}</div>${badge}</div>`;
       }).join('')
-      + `<button class="btn-link" onclick="showTab('tab-fechas',null)" style="margin-top:8px;font-size:12px;">Ver todas →</button>`;
+      + `<button class="btn-link" onclick="openGroup('tab-novedades-group','tab-fechas',null)" style="margin-top:8px;font-size:12px;">Ver todas →</button>`;
     }
   } catch(e) { document.getElementById('inicio-fechas').innerHTML='<p style="color:var(--danger);font-size:13px;">Error al cargar.</p>'; }
 
@@ -1014,7 +1080,7 @@ async function renderInicio() {
           <div style="font-size:13px;font-weight:500;color:var(--text);">${n.titulo}</div>
           ${n.cuerpo?`<div style="font-size:12px;color:var(--text2);margin-top:2px;">${n.cuerpo.slice(0,80)}${n.cuerpo.length>80?'…':''}</div>`:''}
         </div>`).join('')
-      + `<button class="btn-link" onclick="showTab('tab-novedades',null)" style="margin-top:8px;font-size:12px;">Ver todas →</button>`;
+      + `<button class="btn-link" onclick="openGroup('tab-novedades-group','tab-novedades',null)" style="margin-top:8px;font-size:12px;">Ver todas →</button>`;
     }
   } catch(e) { document.getElementById('inicio-novedades').innerHTML='<p style="color:var(--danger);font-size:13px;">Error al cargar.</p>'; }
 }
@@ -1792,7 +1858,8 @@ Object.assign(window, {
   cerrarSesion, filtrarHist, abrirConstanciaGeneral, cerrarConstanciaGeneral, enviarConstanciaGeneral, abrirConstanciaEscolaridad,
   cerrarEscolaridad, enviarEscolaridad, inscribirseMesa, darBajaMesa,
   bajaInscripcionCursado, cambiarPassword, actualizarEmail,
-  toggleSel, confirmarMesa, confirmarCursado, toggleSidebar, closeSidebar
+  toggleSel, confirmarMesa, confirmarCursado, toggleSidebar, closeSidebar,
+  openGroup, showSubTab
 });
 
 // ─── INTENTAR RESTAURAR SESIÓN AL CARGAR LA PÁGINA ─────────────────
