@@ -675,6 +675,50 @@ function getPlan(carrera) { return [...PLAN_COMUN, ...(carrera==='GRE'?PLAN_GRE:
 let sesion = null;   // { usuario, estudiante, registros }
 let histFiltro = 'todos';
 
+// ─── PERSISTENCIA DE SESIÓN (localStorage) ─────────────────────────
+const SESION_KEY = 'inset_portal_sesion';
+function guardarSesionLocal() {
+  try { localStorage.setItem(SESION_KEY, JSON.stringify(sesion)); } catch(e) {}
+}
+function borrarSesionLocal() {
+  try { localStorage.removeItem(SESION_KEY); } catch(e) {}
+}
+async function restaurarSesion() {
+  let guardada = null;
+  try { guardada = JSON.parse(localStorage.getItem(SESION_KEY) || 'null'); } catch(e) {}
+  if (!guardada || !guardada.usuario || !guardada.estudiante) return false;
+
+  setLoading(true);
+  try {
+    // Revalidar contra la base (por si cambió algo o fue eliminado)
+    const usuarios = await sbGet('usuarios_portal', `id=eq.${guardada.usuario.id}`);
+    if (!usuarios.length) { borrarSesionLocal(); setLoading(false); return false; }
+
+    const estArr = await sbGet('estudiantes', `id=eq.${guardada.estudiante.id}`);
+    if (!estArr.length) { borrarSesionLocal(); setLoading(false); return false; }
+
+    const registrosRaw = await sbGet('registros', `estudiante_id=eq.${estArr[0].id}`);
+    sesion = {
+      usuario: usuarios[0],
+      estudiante: estArr[0],
+      registros: registrosRaw.map(r => ({...r, estudianteId: r.estudiante_id}))
+    };
+    guardarSesionLocal();
+    setLoading(false);
+
+    if (usuarios[0].primer_ingreso) {
+      document.getElementById('auth-wrap').style.display = 'flex';
+      showScreen('screen-primer-ingreso');
+    } else {
+      iniciarPortal();
+    }
+    return true;
+  } catch(e) {
+    setLoading(false);
+    return false;
+  }
+}
+
 // ─── UTILIDADES ───────────────────────────────────────────────────
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -757,6 +801,7 @@ async function doLogin() {
       estudiante: estArr[0],
       registros: registrosRaw.map(r => ({...r, estudianteId: r.estudiante_id}))
     };
+    guardarSesionLocal();
 
     setLoading(false);
 
@@ -792,6 +837,7 @@ async function doPrimerIngreso() {
     });
     sesion.usuario.email = email;
     sesion.usuario.primer_ingreso = false;
+    guardarSesionLocal();
     setLoading(false);
     iniciarPortal();
   } catch(e) {
@@ -857,6 +903,7 @@ async function doRecuperar() {
 
 function cerrarSesion() {
   sesion = null;
+  borrarSesionLocal();
   document.getElementById('portal-wrap').style.display = 'none';
   document.getElementById('auth-wrap').style.display = 'flex';
   document.getElementById('login-dni').value = '';
@@ -1753,6 +1800,9 @@ Object.assign(window, {
   bajaInscripcionCursado, cambiarPassword, actualizarEmail,
   toggleSel, confirmarMesa, confirmarCursado, toggleSidebar, closeSidebar
 });
+
+// ─── INTENTAR RESTAURAR SESIÓN AL CARGAR LA PÁGINA ─────────────────
+restaurarSesion();
 </script>
 </body>
 </html>
