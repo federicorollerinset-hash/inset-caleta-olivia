@@ -433,10 +433,6 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
               <input type="text" id="gen-materia" placeholder="Ej: Máquinas Eléctricas" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
             </div>
             <div class="form-group" style="margin-bottom:12px;">
-              <label>Año del examen</label>
-              <input type="text" id="gen-anioexamen" placeholder="Ej: 2026" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
-            </div>
-            <div class="form-group" style="margin-bottom:12px;">
               <label>Fecha del examen</label>
               <input type="date" id="gen-fechaexamen" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
             </div>
@@ -1706,7 +1702,6 @@ function abrirConstanciaGeneral(tipo) {
   if (esExamen) {
     document.getElementById('gen-tipoexamen').value  = 'Final';
     document.getElementById('gen-materia').value     = '';
-    document.getElementById('gen-anioexamen').value  = '';
     document.getElementById('gen-fechaexamen').value = '';
   }
 
@@ -1743,12 +1738,11 @@ async function enviarConstanciaGeneral() {
   if (esExamen) {
     const tipoExamen  = document.getElementById('gen-tipoexamen').value;
     const materia     = document.getElementById('gen-materia').value.trim();
-    const anioExamen  = document.getElementById('gen-anioexamen').value.trim();
     const fechaExamen = document.getElementById('gen-fechaexamen').value;
     if (!materia || !fechaExamen) { alert('Completá la materia y la fecha del examen.'); return; }
-    Object.assign(datos, { tipoExamen, materia, anioExamen, fechaExamen });
+    Object.assign(datos, { tipoExamen, materia, fechaExamen });
     const fechaF = new Date(fechaExamen + 'T12:00').toLocaleDateString('es-AR');
-    detalle += ` · ${tipoExamen} de ${materia} · Año ${anioExamen || '—'} · Fecha ${fechaF}`;
+    detalle += ` · ${tipoExamen} de ${materia} · Fecha ${fechaF}`;
   }
 
   if (tipo === 'otra') {
