@@ -3869,19 +3869,26 @@ async function cerrarLlamado(id) {
 }
 
 async function eliminarLlamado(id, nombreMat) {
+  let insc = [];
   try {
-    const insc = await sbGet('inscripciones', `mesa_id=eq.${id}&estado=eq.inscripto`);
-    if (insc.length) {
-      alert(`No se puede eliminar: hay ${insc.length} estudiante${insc.length!==1?'s':''} inscripto${insc.length!==1?'s':''} en este llamado de ${nombreMat}. Primero dá de baja o migrá esas inscripciones.`);
-      return;
-    }
+    insc = await sbGet('inscripciones', `mesa_id=eq.${id}&estado=eq.inscripto`);
   } catch(e) { alert('Error al verificar inscriptos: '+e.message); return; }
 
-  if (!confirm(`¿Eliminar definitivamente este llamado de ${nombreMat}? Esta acción no se puede deshacer.`)) return;
+  if (insc.length) {
+    const nombres = insc.map(i=>{ const est = estudiantes.find(e=>e.id===i.estudiante_id); return est ? est.nombre : i.estudiante_id; }).join(', ');
+    if (!confirm(`Este llamado de ${nombreMat} tiene ${insc.length} inscripto${insc.length!==1?'s':''}: ${nombres}.\n\n¿Eliminar el llamado Y esas inscripciones? Esta acción no se puede deshacer.`)) return;
+  } else {
+    if (!confirm(`¿Eliminar definitivamente este llamado de ${nombreMat}? Esta acción no se puede deshacer.`)) return;
+  }
+
   mostrarCargando(true);
   try {
+    if (insc.length) {
+      await fetch(`${SB_URL}/rest/v1/inscripciones?mesa_id=eq.${id}`, { method:'DELETE', headers: SB_H });
+    }
     await fetch(`${SB_URL}/rest/v1/mesas?id=eq.${id}`, { method:'DELETE', headers: SB_H });
     showToast('Llamado eliminado');
+    if (document.getElementById('mesas-inscriptos-lista')) cargarInscriptosAdmin();
     cargarMesasAdmin();
   } catch(e) { alert('Error: '+e.message); }
   mostrarCargando(false);
@@ -4000,7 +4007,10 @@ async function cargarInscriptosAdmin() {
             <div style="font-weight:500;font-size:14px;">${nombreMat}</div>
             <div style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-top:2px;">${llamadoLabel} · ${fechaF}${m.horario?' · '+m.horario:''}</div>
           </div>
-          <span class="badge badge-info">${insc.length} inscripto${insc.length!==1?'s':''}</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="badge badge-info">${insc.length} inscripto${insc.length!==1?'s':''}</span>
+            <button class="btn btn-danger btn-sm" onclick="eliminarLlamado('${m.id}','${nombreMat.replace(/'/g,"\\'")}')">Eliminar</button>
+          </div>
         </div>
         ${insc.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">
           ${insc.map(i=>{
