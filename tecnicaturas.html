@@ -239,6 +239,7 @@
     .main { padding: 12px; padding-top: 68px; }
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -861,7 +862,10 @@
             </div>
             <div class="form-group">
               <label>Cierre de inscripción (general) *</label>
-              <input type="datetime-local" id="mp-cierre">
+              <div style="display:flex;gap:6px;">
+                <input type="date" id="mp-cierre-fecha" style="flex:1;">
+                <input type="text" id="mp-cierre-hora" placeholder="19:30" maxlength="5" oninput="formatHora24(this)" style="width:80px;">
+              </div>
             </div>
           </div>
           <button class="btn btn-primary" onclick="generarGrillaPeriodo()">
@@ -876,10 +880,15 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
               <div class="card-title" style="margin-bottom:0;" id="grilla-titulo">Grilla del período</div>
               <div style="display:flex;gap:8px;">
+                <label class="btn btn-ghost" style="cursor:pointer;margin-bottom:0;">
+                  Importar desde Excel
+                  <input type="file" id="excel-mesas-input" accept=".xlsx,.xls" style="display:none;" onchange="importarExcelMesas(this.files[0])">
+                </label>
                 <button class="btn btn-success" onclick="guardarGrilla()">Guardar todos los llamados</button>
                 <button class="btn btn-ghost" onclick="document.getElementById('grilla-periodo').style.display='none'">Cancelar</button>
               </div>
             </div>
+            <p style="font-size:12px;color:var(--text3);margin-bottom:16px;">El Excel debe tener columnas Día, Fecha, Hora, Materia (y opcionalmente Tribunal, que se ignora). Cada hoja del archivo se asigna a un llamado según su nombre (contiene "1" → 1° llamado, "2" → 2° llamado). Revisá los datos completados antes de guardar.</p>
             <div id="grilla-body"></div>
           </div>
         </div>
@@ -932,11 +941,14 @@
               </div>
               <div class="form-group">
                 <label>Horario</label>
-                <input type="time" id="m-horario">
+                <input type="text" id="m-horario" placeholder="19:30" maxlength="5" oninput="formatHora24(this)">
               </div>
               <div class="form-group">
                 <label>Cierre de inscripción *</label>
-                <input type="datetime-local" id="m-cierre">
+                <div style="display:flex;gap:6px;">
+                  <input type="date" id="m-cierre-fecha" style="flex:1;">
+                  <input type="text" id="m-cierre-hora" placeholder="19:30" maxlength="5" oninput="formatHora24(this)" style="width:80px;">
+                </div>
               </div>
               <div class="form-group">
                 <label>Aula / Lugar</label>
@@ -1015,11 +1027,17 @@
             </div>
             <div class="form-group">
               <label>Inicio de inscripción *</label>
-              <input type="datetime-local" id="cur-inicio">
+              <div style="display:flex;gap:6px;">
+                <input type="date" id="cur-inicio-fecha" style="flex:1;">
+                <input type="text" id="cur-inicio-hora" placeholder="08:00" maxlength="5" oninput="formatHora24(this)" style="width:80px;">
+              </div>
             </div>
             <div class="form-group">
               <label>Cierre de inscripción *</label>
-              <input type="datetime-local" id="cur-cierre">
+              <div style="display:flex;gap:6px;">
+                <input type="date" id="cur-cierre-fecha" style="flex:1;">
+                <input type="text" id="cur-cierre-hora" placeholder="23:59" maxlength="5" oninput="formatHora24(this)" style="width:80px;">
+              </div>
             </div>
           </div>
           <div class="btn-row">
@@ -1705,6 +1723,23 @@ function getNombreMateria(mod, carrera) {
 const SB_URL = 'https://jqjkhgynbjlxdfituplx.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxamtoZ3luYmpseGRmaXR1cGx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDUwMzkxMSwiZXhwIjoyMDk2MDc5OTExfQ.Yx63xZCpkMz7yf4_4ftiri7Lp3oK8tHBpquDQ6pFRKA';
 const SB_H = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+// ─── HORA 24HS (evita que el navegador muestre AM/PM según el idioma del SO) ───
+function formatHora24(el) {
+  let v = el.value.replace(/[^0-9]/g, '').slice(0, 4);
+  if (v.length >= 3) v = v.slice(0, 2) + ':' + v.slice(2);
+  el.value = v;
+}
+function horaValida(v) {
+  return /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(v || '');
+}
+// Combina un input date + un input de texto "HH:MM" en 'YYYY-MM-DDTHH:MM', o null si falta algo
+function combinarFechaHora(idFecha, idHora) {
+  const fecha = document.getElementById(idFecha).value;
+  const hora  = document.getElementById(idHora).value;
+  if (!fecha || !horaValida(hora)) return null;
+  return `${fecha}T${hora}`;
+}
 
 async function sbGet(tabla, params='') {
   const p = params || 'order=created_at.asc';
@@ -3478,8 +3513,8 @@ function actualizarLlamadosMasivo() {
 
 function generarGrillaPeriodo() {
   const periodo = document.getElementById('mp-periodo').value;
-  const cierre  = document.getElementById('mp-cierre').value;
-  if (!periodo || !cierre) { alert('Seleccioná período y cierre de inscripción.'); return; }
+  const cierre  = combinarFechaHora('mp-cierre-fecha', 'mp-cierre-hora');
+  if (!periodo || !cierre) { alert('Seleccioná período y cierre de inscripción (fecha y hora en formato 24hs, ej: 19:30).'); return; }
 
   const esExt = ES_EXTRAORDINARIA(periodo);
   const llamados = esExt ? ['unico'] : ['1','2'];
@@ -3520,7 +3555,7 @@ function generarGrillaPeriodo() {
               <td style="padding:8px 10px;font-size:13px;">${m.nombre}</td>
               ${llamados.map(ll => `
                 <td style="padding:6px;"><input type="date" class="grilla-fecha" data-mod="${m.mod}" data-carrera="${sec.carrera}" data-llamado="${ll}" style="${inputStyle}"></td>
-                <td style="padding:6px;"><input type="time" class="grilla-horario" data-mod="${m.mod}" data-carrera="${sec.carrera}" data-llamado="${ll}" style="${inputStyle}" placeholder="18:00"></td>
+                <td style="padding:6px;"><input type="text" class="grilla-horario" data-mod="${m.mod}" data-carrera="${sec.carrera}" data-llamado="${ll}" style="${inputStyle}" placeholder="18:00" maxlength="5" oninput="formatHora24(this)"></td>
               `).join('')}
             </tr>`).join('')}
         </tbody>
@@ -3536,7 +3571,7 @@ function generarGrillaPeriodo() {
 
 async function guardarGrilla() {
   const periodo = document.getElementById('mp-periodo').value;
-  const cierre  = document.getElementById('mp-cierre').value;
+  const cierre  = combinarFechaHora('mp-cierre-fecha', 'mp-cierre-hora');
   const cierreUTC = cierre ? cierre + ':00-03:00' : cierre; // hora Argentina, ver nota en abrirPeriodoCursado()
 
   // Recolectar solo las filas con fecha cargada
@@ -3580,7 +3615,82 @@ async function guardarGrilla() {
   showToast(msg);
   document.getElementById('grilla-periodo').style.display = 'none';
   document.getElementById('mp-periodo').value = '';
-  document.getElementById('mp-cierre').value = '';
+  document.getElementById('mp-cierre-fecha').value = '';
+  document.getElementById('mp-cierre-hora').value = '';
+}
+
+function normTxt(s) {
+  return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+async function importarExcelMesas(file) {
+  if (!file) return;
+  const periodo = document.getElementById('mp-periodo').value;
+  if (!periodo || document.getElementById('grilla-periodo').style.display === 'none') {
+    alert('Primero generá la grilla del período (seleccioná período y cierre, y hacé clic en "Generar grilla").');
+    return;
+  }
+  const esExt = ES_EXTRAORDINARIA(periodo);
+
+  // Candidatos: mismo criterio que generarGrillaPeriodo
+  const tronco = getPlan('GRE').filter(m => m.mod <= 11).map(m => ({ mod: m.mod, carrera: 'AMBAS', nombre: m.nombre }));
+  const gre2   = getPlan('GRE').filter(m => m.mod >= 12).map(m => ({ mod: m.mod, carrera: 'GRE', nombre: m.nombre }));
+  const mi2    = getPlan('MI').filter(m => m.mod >= 12).map(m => ({ mod: m.mod, carrera: 'MI', nombre: m.nombre }));
+  const candidatos = [...tronco, ...gre2, ...mi2];
+
+  mostrarCargando(true);
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+
+    let completados = 0;
+    const sinCoincidencia = [];
+
+    wb.SheetNames.forEach(sheetName => {
+      let llamadoHoja = esExt ? 'unico' : (sheetName.includes('2') ? '2' : sheetName.includes('1') ? '1' : null);
+      if (!llamadoHoja) return; // hoja no identificable, se ignora
+
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
+      rows.forEach((row, i) => {
+        if (i === 0) return; // encabezado
+        const fechaCell = row[1], horaCell = row[2], materiaTxt = row[3];
+        if (!materiaTxt || !fechaCell) return;
+
+        // Fecha: XLSX con cellDates da string 'yyyy-mm-dd' via dateNF, o Date si no pudo formatear
+        let fechaStr = fechaCell;
+        if (fechaCell instanceof Date) {
+          fechaStr = `${fechaCell.getFullYear()}-${String(fechaCell.getMonth()+1).padStart(2,'0')}-${String(fechaCell.getDate()).padStart(2,'0')}`;
+        }
+        // Hora: puede venir como Date (cellDates) o como string "HH:MM:SS"
+        let horaStr = null;
+        if (horaCell instanceof Date) {
+          horaStr = `${String(horaCell.getHours()).padStart(2,'0')}:${String(horaCell.getMinutes()).padStart(2,'0')}`;
+        } else if (typeof horaCell === 'string' && horaCell.includes(':')) {
+          const partes = horaCell.split(':');
+          horaStr = `${partes[0].padStart(2,'0')}:${partes[1].padStart(2,'0')}`;
+        }
+
+        const norm = normTxt(materiaTxt);
+        const matches = candidatos.filter(c => normTxt(c.nombre) === norm);
+        if (!matches.length) { sinCoincidencia.push(`${materiaTxt} (${sheetName})`); return; }
+
+        matches.forEach(m => {
+          const fEl = document.querySelector(`.grilla-fecha[data-mod="${m.mod}"][data-carrera="${m.carrera}"][data-llamado="${llamadoHoja}"]`);
+          const hEl = document.querySelector(`.grilla-horario[data-mod="${m.mod}"][data-carrera="${m.carrera}"][data-llamado="${llamadoHoja}"]`);
+          if (fEl) { fEl.value = fechaStr; completados++; }
+          if (hEl && horaStr) hEl.value = horaStr;
+        });
+      });
+    });
+
+    let msg = `${completados} materia${completados!==1?'s':''} completada${completados!==1?'s':''} desde el Excel.`;
+    if (sinCoincidencia.length) msg += `\n\nSin coincidencia (completalas a mano):\n${sinCoincidencia.join('\n')}`;
+    alert(msg);
+  } catch(e) {
+    alert('Error al leer el Excel: ' + e.message);
+  }
+  mostrarCargando(false);
+  document.getElementById('excel-mesas-input').value = '';
 }
 
 
@@ -3591,16 +3701,18 @@ async function guardarGrilla() {
 function limpiarFormCursado() {
   document.getElementById('cur-cuatri').value = '';
   document.getElementById('cur-anio').value = '';
-  document.getElementById('cur-inicio').value = '';
-  document.getElementById('cur-cierre').value = '';
+  document.getElementById('cur-inicio-fecha').value = '';
+  document.getElementById('cur-inicio-hora').value = '';
+  document.getElementById('cur-cierre-fecha').value = '';
+  document.getElementById('cur-cierre-hora').value = '';
 }
 
 async function abrirPeriodoCursado() {
   const cuatri = document.getElementById('cur-cuatri').value;
   const anio   = document.getElementById('cur-anio').value;
-  const inicio = document.getElementById('cur-inicio').value;
-  const cierre = document.getElementById('cur-cierre').value;
-  if (!cuatri || !anio || !inicio || !cierre) { alert('Completá todos los campos.'); return; }
+  const inicio = combinarFechaHora('cur-inicio-fecha', 'cur-inicio-hora');
+  const cierre = combinarFechaHora('cur-cierre-fecha', 'cur-cierre-hora');
+  if (!cuatri || !anio || !inicio || !cierre) { alert('Completá todos los campos (hora en formato 24hs, ej: 08:00).'); return; }
 
   // Verificar que no exista ya ese período
   const existe = await sbGet('periodos_cursado', `cuatrimestre=eq.${cuatri}&anio=eq.${anio}&activo=eq.true`);
@@ -3766,7 +3878,8 @@ function limpiarFormMesa() {
   });
   document.getElementById('m-fecha').value = '';
   document.getElementById('m-horario').value = '';
-  document.getElementById('m-cierre').value = '';
+  document.getElementById('m-cierre-fecha').value = '';
+  document.getElementById('m-cierre-hora').value = '';
 }
 
 async function crearLlamado() {
@@ -3776,11 +3889,11 @@ async function crearLlamado() {
   const mod      = document.getElementById('m-materia').value;
   const fecha    = document.getElementById('m-fecha').value;
   const horario  = document.getElementById('m-horario').value;
-  const cierre   = document.getElementById('m-cierre').value;
+  const cierre   = combinarFechaHora('m-cierre-fecha', 'm-cierre-hora');
   const aula     = document.getElementById('m-aula').value.trim();
 
   if (!periodo || !llamado || !carrera || !mod || !fecha || !cierre) {
-    alert('Completá los campos obligatorios: período, llamado, carrera, materia, fecha y cierre.');
+    alert('Completá los campos obligatorios: período, llamado, carrera, materia, fecha y cierre (con hora en formato 24hs, ej: 19:30).');
     return;
   }
 
