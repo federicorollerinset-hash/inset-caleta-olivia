@@ -1447,12 +1447,13 @@ async function renderMesa() {
                 const fechaF = ll.fecha ? new Date(ll.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}) : '?';
                 const label = ll.llamado==='unico' ? 'Único' : ll.llamado+'° Llamado';
                 const periodo = PERIODOS[ll.periodo]||ll.periodo;
+                const obs = ll.aula ? ' · '+ll.aula : '';
                 return yaInscripto
                   ? `<button class="btn btn-sm" style="background:rgba(184,50,50,0.08);border:1px solid rgba(184,50,50,0.25);color:var(--danger);" onclick="darBajaMesa('${ll.id}')">
-                      ✓ ${periodo} · ${label} · ${fechaF}${ll.horario?' '+ll.horario:''} — Dar de baja
+                      ✓ ${periodo} · ${label} · ${fechaF}${ll.horario?' '+ll.horario:''}${obs} — Dar de baja
                      </button>`
                   : `<button class="btn btn-ghost btn-sm" onclick="inscribirseMesa('${ll.id}', this)">
-                      ${periodo} · ${label} · ${fechaF}${ll.horario?' '+ll.horario:''}
+                      ${periodo} · ${label} · ${fechaF}${ll.horario?' '+ll.horario:''}${obs}
                      </button>`;
               }).join('')}
             </div>
@@ -1472,7 +1473,7 @@ async function renderMesa() {
               return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);">
                 <div>
                   <div style="font-size:13px;font-weight:500;">${mat?mat.nombre:'Módulo '+mesa.mod}</div>
-                  <div style="font-size:11px;color:var(--text3);font-family:var(--mono);">${PERIODOS[mesa.periodo]||mesa.periodo} · ${label} · ${fechaF}${mesa.horario?' '+mesa.horario:''}</div>
+                  <div style="font-size:11px;color:var(--text3);font-family:var(--mono);">${PERIODOS[mesa.periodo]||mesa.periodo} · ${label} · ${fechaF}${mesa.horario?' '+mesa.horario:''}${mesa.aula?' · '+mesa.aula:''}</div>
                 </div>
                 <span class="badge badge-success">Inscripto</span>
               </div>`;
