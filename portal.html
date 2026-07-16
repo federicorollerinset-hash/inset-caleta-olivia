@@ -1499,7 +1499,7 @@ async function inscribirseMesa(mesaId, btn) {
   try {
     btn.disabled = true;
     await sbPost('inscripciones', { estudiante_id: sesion.estudiante.id, mesa_id: mesaId, estado: 'inscripto' });
-    const mat = habilitadas.find(m => m.mod == mesa[0].mod);
+    const mat = calcStats().habilitadas.find(m => m.mod == mesa[0].mod);
     await guardarSolicitud(
       'Inscripción a mesa de examen',
       `Materia: ${mat?.nombre || 'Módulo '+mesa[0].mod} · ${mesa[0].periodo||''} · ${mesa[0].llamado||''}° llamado`
