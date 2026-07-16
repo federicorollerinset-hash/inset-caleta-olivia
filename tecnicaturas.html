@@ -4052,11 +4052,12 @@ async function guardarEdicionMesa() {
   mostrarCargando(true);
   try {
     const cierreUTC = cierre + ':00-03:00';
-    await fetch(`${SB_URL}/rest/v1/mesas?id=eq.${id}`, {
+    const r = await fetch(`${SB_URL}/rest/v1/mesas?id=eq.${id}`, {
       method: 'PATCH',
       headers: SB_H,
       body: JSON.stringify({ fecha, horario: horario||null, cierre_inscripcion: cierreUTC, aula: aula||null })
     });
+    if (!r.ok) throw new Error(await r.text());
     showToast('Llamado actualizado');
     cerrarEditarMesa();
     cargarMesasAdmin();
@@ -4068,7 +4069,8 @@ async function cerrarLlamado(id) {
   if (!confirm('¿Cerrar este llamado? Ya no se podrán inscribir nuevos estudiantes.')) return;
   mostrarCargando(true);
   try {
-    await fetch(`${SB_URL}/rest/v1/mesas?id=eq.${id}`, { method:'PATCH', headers: SB_H, body: JSON.stringify({activa: false}) });
+    const r = await fetch(`${SB_URL}/rest/v1/mesas?id=eq.${id}`, { method:'PATCH', headers: SB_H, body: JSON.stringify({activa: false}) });
+    if (!r.ok) throw new Error(await r.text());
     showToast('Llamado cerrado');
     cargarMesasAdmin();
   } catch(e) { alert('Error: '+e.message); }
@@ -4091,13 +4093,13 @@ async function eliminarLlamado(id, nombreMat) {
   mostrarCargando(true);
   try {
     if (insc.length) {
-      await fetch(`${SB_URL}/rest/v1/inscripciones?mesa_id=eq.${id}`, { method:'DELETE', headers: SB_H });
+      await sbDelete('inscripciones', `mesa_id=eq.${id}`);
     }
-    await fetch(`${SB_URL}/rest/v1/mesas?id=eq.${id}`, { method:'DELETE', headers: SB_H });
+    await sbDelete('mesas', `id=eq.${id}`);
     showToast('Llamado eliminado');
     if (document.getElementById('mesas-inscriptos-lista')) cargarInscriptosAdmin();
     cargarMesasAdmin();
-  } catch(e) { alert('Error: '+e.message); }
+  } catch(e) { alert('Error al eliminar: ' + e.message); }
   mostrarCargando(false);
 }
 
