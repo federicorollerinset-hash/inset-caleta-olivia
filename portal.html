@@ -166,7 +166,28 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
 @media (max-width: 600px) {
   .inicio-grid-res { grid-template-columns: 1fr !important; }
   #tab-constancias .const-btn-grid { grid-template-columns: 1fr !important; }
+  .horario-table { font-size: 10.5px; }
+  .horario-cell { font-size: 10px; padding: 5px 4px; }
+  .horario-cell .doc { font-size: 8.5px; }
+  .horario-hora { font-size: 9.5px; width: 60px; }
 }
+
+/* Horarios */
+.horario-table-wrap { overflow-x: auto; }
+.horario-table { width:100%; border-collapse:collapse; font-size:12.5px; table-layout:fixed; }
+.horario-table th { background:var(--bg3); font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); padding:8px 6px; border:1px solid var(--border); text-align:center; font-weight:600; }
+.horario-table td { border:1px solid var(--border); padding:5px; vertical-align:top; text-align:center; }
+.horario-hora { background:var(--bg3); font-family:var(--mono); font-size:11px; color:var(--text3); white-space:nowrap; width:80px; }
+.horario-cell { border-radius:6px; padding:7px 6px; font-size:11.5px; font-weight:600; line-height:1.25; }
+.horario-cell .doc { display:block; font-size:10px; font-weight:400; opacity:.8; margin-top:3px; font-family:var(--mono); }
+.hc1{background:rgba(26,79,138,.10);color:var(--accent);}
+.hc2{background:rgba(26,122,82,.10);color:var(--success);}
+.hc3{background:rgba(176,106,10,.13);color:var(--warning);}
+.hc4{background:rgba(124,58,178,.10);color:#7c3ab2;}
+.hc5{background:rgba(184,50,50,.10);color:var(--danger);}
+.hc6{background:rgba(15,110,130,.10);color:#0f6e82;}
+.hc7{background:rgba(176,125,16,.13);color:var(--accent2);}
+.horario-nota { font-size:12px; color:var(--text3); margin-bottom:14px; }
 </style>
 </head>
 <body>
@@ -314,6 +335,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
       <button class="nav-tab" onclick="showTab('tab-constancias',this)">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
         Constancias
+      </button>
+      <button class="nav-tab" onclick="openGroup('tab-horarios-group','tab-hor-notec-ac',this)">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Horarios
       </button>
       <button class="nav-tab" onclick="openGroup('tab-inscripciones-group','tab-mesa',this)">
         <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -524,6 +549,34 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
       <div class="card">
         <div class="card-title">Mis solicitudes</div>
         <div id="mis-constancias"><p style="color:var(--text3);font-size:13px;">Cargando...</p></div>
+      </div>
+    </div>
+
+    <!-- HORARIOS (grupo: uno por comisión) -->
+    <div id="tab-horarios-group" class="tab-pane" style="display:none;">
+      <p class="horario-nota">Corresponden al 1er cuatrimestre 2026. Las materias cuatrimestrales cambian en el 2do cuatrimestre.</p>
+      <div class="subnav">
+        <button class="subnav-pill active" data-sub="tab-hor-notec-ac" onclick="showSubTab('tab-horarios-group','tab-hor-notec-ac',this)">1° No Técnicos (A/C)</button>
+        <button class="subnav-pill" data-sub="tab-hor-notec-b" onclick="showSubTab('tab-horarios-group','tab-hor-notec-b',this)">1° No Técnicos (B)</button>
+        <button class="subnav-pill" data-sub="tab-hor-tec" onclick="showSubTab('tab-horarios-group','tab-hor-tec',this)">1° Técnicos</button>
+        <button class="subnav-pill" data-sub="tab-hor-gre2" onclick="showSubTab('tab-horarios-group','tab-hor-gre2',this)">GRE — 2° Año</button>
+        <button class="subnav-pill" data-sub="tab-hor-mi2" onclick="showSubTab('tab-horarios-group','tab-hor-mi2',this)">Mant. Industrial — 2° Año</button>
+      </div>
+
+      <div id="tab-hor-notec-ac" class="subpane" style="display:block;">
+        <div class="card"><div class="horario-table-wrap" id="hor-notec-ac-tabla"></div></div>
+      </div>
+      <div id="tab-hor-notec-b" class="subpane">
+        <div class="card"><div class="horario-table-wrap" id="hor-notec-b-tabla"></div></div>
+      </div>
+      <div id="tab-hor-tec" class="subpane">
+        <div class="card"><div class="horario-table-wrap" id="hor-tec-tabla"></div></div>
+      </div>
+      <div id="tab-hor-gre2" class="subpane">
+        <div class="card"><div class="horario-table-wrap" id="hor-gre2-tabla"></div></div>
+      </div>
+      <div id="tab-hor-mi2" class="subpane">
+        <div class="card"><div class="horario-table-wrap" id="hor-mi2-tabla"></div></div>
       </div>
     </div>
 
@@ -988,6 +1041,97 @@ function showTab(id, btn) {
   if (btn) btn.classList.add('active');
   closeSidebar();
 }
+
+// ─── HORARIOS ───────────────────────────────────────────────────────
+const HORARIO_DIAS = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
+const HORARIO_PERIODOS = [
+  ['18:00','18:40'],['18:40','19:20'],['19:20','20:00'],['20:00','20:40'],
+  ['20:40','21:20'],['21:20','22:00'],['22:00','22:40'],['22:40','23:20'],['23:20','24:00']
+];
+const HORARIO_COLORES = ['hc1','hc2','hc3','hc4','hc5','hc6','hc7'];
+
+const HORARIOS_DATA = {
+  'hor-notec-ac': [
+    {dia:'Martes', ini:2, fin:7, materia:'EDI - Montaje, Operación y Mantenimiento de Instalaciones Eléctricas (Práctica)', docente:''},
+    {dia:'Miércoles', ini:2, fin:5, materia:'Representación Gráfica', docente:'Semino Messina, Daniela Alejandra'},
+    {dia:'Jueves', ini:3, fin:6, materia:'EDI - Montaje, Operación y Mantenimiento de Instalaciones Eléctricas (Teoría)', docente:''},
+    {dia:'Jueves', ini:7, fin:9, materia:'Medición y Análisis de Sistemas Eléctricos', docente:'Miranda, Angel Jonatan'}
+  ],
+  'hor-notec-b': [
+    {dia:'Lunes', ini:2, fin:5, materia:'Representación Gráfica (B)', docente:''},
+    {dia:'Lunes', ini:6, fin:8, materia:'Medición y Análisis de Sistema Eléctricos (B)', docente:'Prieto, Jorge'},
+    {dia:'Martes', ini:2, fin:7, materia:'Montaje, Operación y Mantenimiento de Instalaciones Eléctricas (B)', docente:'Prieto, Jorge'},
+    {dia:'Jueves', ini:3, fin:6, materia:'Montaje, Operación y Mantenimiento de Instalaciones Eléctricas', docente:'Prieto, Jorge'}
+  ],
+  'hor-tec': [
+    {dia:'Lunes', ini:5, fin:5, materia:'Instrumentación y Control de Procesos', docente:'Acosta, Kevin Nahuel Amin'},
+    {dia:'Lunes', ini:6, fin:9, materia:'Gestión de Calidad, Emprendimiento y Comercialización', docente:''},
+    {dia:'Jueves', ini:3, fin:4, materia:'Dispositivos e Instalaciones Eléctricas', docente:'Velix, Gabriel Augusto'},
+    {dia:'Jueves', ini:5, fin:6, materia:'Máquinas Eléctricas', docente:'Miranda, Angel Jonatan'},
+    {dia:'Jueves', ini:7, fin:9, materia:'Instrumentación y Control de Procesos', docente:'Acosta, Kevin Nahuel Amin'},
+    {dia:'Viernes', ini:3, fin:4, materia:'Dispositivos e Instalaciones Eléctricas', docente:'Velix, Gabriel Augusto'},
+    {dia:'Viernes', ini:5, fin:6, materia:'Máquinas Eléctricas', docente:'Miranda, Angel Jonatan'},
+    {dia:'Viernes', ini:7, fin:9, materia:'Liderazgo, Motivación y Comunicación Efectiva', docente:'Delgado, Roque Gustavo'}
+  ],
+  'hor-gre2': [
+    {dia:'Lunes', ini:2, fin:2, materia:'Gestión de la Energía', docente:'Velix, Gabriel Augusto'},
+    {dia:'Lunes', ini:3, fin:4, materia:'Mantenimiento Industrial', docente:'Acosta, Kevin Nahuel Amin'},
+    {dia:'Lunes', ini:5, fin:7, materia:'Transporte y Distribución en Redes Eléctricas', docente:'Soloaga, Hector Rodolfo'},
+    {dia:'Martes', ini:2, fin:4, materia:'Gestión de la Energía', docente:'Velix, Gabriel Augusto'},
+    {dia:'Martes', ini:5, fin:8, materia:'Centrales Térmicas, Hidráulicas y Eólicas', docente:'Miranda, Angel Jonatan'},
+    {dia:'Miércoles', ini:3, fin:5, materia:'Mantenimiento Industrial', docente:'Acosta, Kevin Nahuel Amin'},
+    {dia:'Miércoles', ini:6, fin:8, materia:'Centrales Térmicas, Hidráulicas y Eólicas', docente:'Miranda, Angel Jonatan'},
+    {dia:'Jueves', ini:2, fin:4, materia:'Prácticas Profesionalizantes Especializadas', docente:'Soloaga, Hector Rodolfo'},
+    {dia:'Jueves', ini:5, fin:8, materia:'Transporte y Distribución en Redes Eléctricas', docente:'Soloaga, Hector Rodolfo'},
+    {dia:'Viernes', ini:3, fin:4, materia:'Inglés Técnico', docente:'Fernandez, Ileana Camila'},
+    {dia:'Viernes', ini:5, fin:8, materia:'Prácticas Profesionalizantes Especializadas', docente:'Soloaga, Hector Rodolfo'}
+  ],
+  'hor-mi2': [
+    {dia:'Lunes', ini:2, fin:4, materia:'Dispositivos e Instalaciones Mecánicas', docente:'Martino, Sergio Manuel'},
+    {dia:'Lunes', ini:5, fin:9, materia:'Máquinas Térmicas e Hidráulicas', docente:'Miranda, Angel Jonatan'},
+    {dia:'Martes', ini:2, fin:6, materia:'Procesos de Extracción y Tratamiento de Recursos Minerales', docente:'Amado, Rubén Héctor'},
+    {dia:'Miércoles', ini:2, fin:5, materia:'Prácticas Profesionalizantes Especializadas', docente:'Martino, Sergio Manuel'},
+    {dia:'Miércoles', ini:6, fin:7, materia:'Dispositivos e Instalaciones Mecánicas', docente:'Martino, Sergio Manuel'},
+    {dia:'Jueves', ini:2, fin:6, materia:'Mantenimiento Industrial', docente:'Ochoa, Alex Federico'},
+    {dia:'Viernes', ini:2, fin:4, materia:'Prácticas Profesionalizantes Especializadas', docente:'Martino, Sergio Manuel'},
+    {dia:'Viernes', ini:5, fin:6, materia:'Inglés Técnico', docente:'Rios, Mariela Verónica'},
+    {dia:'Viernes', ini:7, fin:9, materia:'Eficiencia Energética', docente:'Miranda, Angel Jonatan'}
+  ]
+};
+
+function renderHorario(containerId, dataKey) {
+  const bloques = HORARIOS_DATA[dataKey];
+  const colorMap = {};
+  let colorIdx = 0;
+  const grid = {};
+  for (let p = 1; p <= 9; p++) grid[p] = {};
+  const skip = {};
+  bloques.forEach(b => {
+    if (!(b.materia in colorMap)) { colorMap[b.materia] = HORARIO_COLORES[colorIdx % HORARIO_COLORES.length]; colorIdx++; }
+    grid[b.ini][b.dia] = { materia: b.materia, docente: b.docente, rowspan: b.fin - b.ini + 1, color: colorMap[b.materia] };
+    for (let p = b.ini + 1; p <= b.fin; p++) skip[p + '-' + b.dia] = true;
+  });
+  let html = '<div class="table-wrap"><table class="horario-table"><thead><tr><th>Hora</th>';
+  HORARIO_DIAS.forEach(d => html += `<th>${d}</th>`);
+  html += '</tr></thead><tbody>';
+  for (let p = 1; p <= 9; p++) {
+    html += `<tr><td class="horario-hora">${HORARIO_PERIODOS[p-1][0]}–${HORARIO_PERIODOS[p-1][1]}</td>`;
+    HORARIO_DIAS.forEach(d => {
+      if (skip[p + '-' + d]) return;
+      const cell = grid[p][d];
+      if (cell) {
+        html += `<td rowspan="${cell.rowspan}"><div class="horario-cell ${cell.color}">${cell.materia}${cell.docente ? `<span class="doc">${cell.docente}</span>` : ''}</div></td>`;
+      } else {
+        html += '<td></td>';
+      }
+    });
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+  document.getElementById(containerId).innerHTML = html;
+}
+
+Object.keys(HORARIOS_DATA).forEach(key => renderHorario(key + '-tabla', key));
 
 // Abre un ítem del menú que agrupa varias secciones (ej: "Mi trayectoria")
 // y muestra su primera sub-sección por defecto.
