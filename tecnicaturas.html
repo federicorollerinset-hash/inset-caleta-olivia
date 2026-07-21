@@ -155,12 +155,11 @@
   .group-nav-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
   /* Horarios */
-  .horario-table { width:100%; min-width:640px; border-collapse:collapse; font-size:12.5px; }
-  .horario-table th { background:var(--bg3); font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); padding:8px 6px; border:1px solid var(--border); text-align:center; font-weight:600; }
-  .horario-table td { border:1px solid var(--border); padding:5px; vertical-align:top; text-align:center; }
-  .horario-hora { background:var(--bg3); font-family:var(--mono); font-size:11px; color:var(--text3); white-space:nowrap; width:80px; }
-  .horario-cell { border-radius:6px; padding:7px 6px; font-size:11.5px; font-weight:600; line-height:1.25; }
-  .horario-cell .doc { display:block; font-size:10px; font-weight:400; opacity:.8; margin-top:3px; font-family:var(--mono); }
+  .horario-nota { font-size:12px; color:var(--text3); margin-bottom:14px; }
+  .horario-selector { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+  .horario-sel-btn { background:var(--bg2); border:1px solid var(--border); color:var(--text2); padding:9px 16px; border-radius:20px; font-family:inherit; font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; }
+  .horario-sel-btn:hover { border-color:var(--accent); color:var(--text); }
+  .horario-sel-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
   .hc1{background:rgba(26,79,138,.10);color:var(--accent);}
   .hc2{background:rgba(26,122,82,.10);color:var(--success);}
   .hc3{background:rgba(176,106,10,.13);color:var(--warning);}
@@ -168,19 +167,14 @@
   .hc5{background:rgba(184,50,50,.10);color:var(--danger);}
   .hc6{background:rgba(15,110,130,.10);color:#0f6e82;}
   .hc7{background:rgba(176,125,16,.13);color:var(--accent2);}
-  .horario-nota { font-size:12px; color:var(--text3); margin-bottom:14px; }
-  .horario-mobile { display:none; }
-  .horario-dia-group { margin-bottom:16px; }
+  .horario-dia-group { margin-bottom:18px; }
   .horario-dia-group:last-child { margin-bottom:0; }
   .horario-dia-title { font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); padding-bottom:6px; margin-bottom:8px; border-bottom:1px solid var(--border); }
   .horario-agenda-item { display:flex; flex-direction:column; gap:2px; padding:10px 12px; margin-bottom:8px; border-radius:8px; }
   .horario-agenda-item:last-child { margin-bottom:0; }
   .horario-agenda-hora { font-family:var(--mono); font-size:11px; opacity:.85; }
   .horario-agenda-materia { font-size:13px; font-weight:700; }
-  @media (max-width: 640px) {
-    .horario-desktop { display:none; }
-    .horario-mobile { display:block; }
-  }
+  .horario-agenda-doc { font-size:11px; font-weight:400; opacity:.8; font-family:var(--mono); }
 
   /* Correlativa tag */
   .corr-tag { display: inline-flex; align-items: center; background: rgba(176,125,16,0.1); color: var(--accent2); border-radius: 4px; padding: 1px 7px; font-size: 11px; font-family: var(--mono); margin-left: 6px; }
@@ -1165,28 +1159,14 @@
         <p>Horarios de cursada por comisión — 1er cuatrimestre 2026</p>
       </div>
       <p class="horario-nota">Corresponden al 1er cuatrimestre 2026. Las materias cuatrimestrales cambian en el 2do cuatrimestre.</p>
-      <div class="tabs">
-        <button class="tab active" onclick="switchTab('hor-notec-ac', this)">1° No Técnicos (Com. A/C)</button>
-        <button class="tab" onclick="switchTab('hor-notec-b', this)">1° No Técnicos (Com. B)</button>
-        <button class="tab" onclick="switchTab('hor-tec', this)">1° Técnicos</button>
-        <button class="tab" onclick="switchTab('hor-gre2', this)">GRE — 2° Año</button>
-        <button class="tab" onclick="switchTab('hor-mi2', this)">Mant. Industrial — 2° Año</button>
+      <div class="horario-selector">
+        <button class="horario-sel-btn active" onclick="selectHorario('hor-notec-ac', this)">1° No Técnicos (Com. A/C)</button>
+        <button class="horario-sel-btn" onclick="selectHorario('hor-notec-b', this)">1° No Técnicos (Com. B)</button>
+        <button class="horario-sel-btn" onclick="selectHorario('hor-tec', this)">1° Técnicos</button>
+        <button class="horario-sel-btn" onclick="selectHorario('hor-gre2', this)">GRE — 2° Año</button>
+        <button class="horario-sel-btn" onclick="selectHorario('hor-mi2', this)">Mant. Industrial — 2° Año</button>
       </div>
-      <div id="hor-notec-ac">
-        <div class="card" style="padding:16px;"><div id="hor-notec-ac-tabla"></div></div>
-      </div>
-      <div id="hor-notec-b" style="display:none">
-        <div class="card" style="padding:16px;"><div id="hor-notec-b-tabla"></div></div>
-      </div>
-      <div id="hor-tec" style="display:none">
-        <div class="card" style="padding:16px;"><div id="hor-tec-tabla"></div></div>
-      </div>
-      <div id="hor-gre2" style="display:none">
-        <div class="card" style="padding:16px;"><div id="hor-gre2-tabla"></div></div>
-      </div>
-      <div id="hor-mi2" style="display:none">
-        <div class="card" style="padding:16px;"><div id="hor-mi2-tabla"></div></div>
-      </div>
+      <div class="card" style="padding:16px;"><div id="horarios-contenido"></div></div>
     </div>
 
     <!-- PORTAL PREVIEW -->
@@ -3602,33 +3582,6 @@ function renderHorario(containerId, dataKey) {
     if (!(b.materia in colorMap)) { colorMap[b.materia] = HORARIO_COLORES[colorIdx % HORARIO_COLORES.length]; colorIdx++; }
   });
 
-  // ── Tabla (desktop) ──
-  const grid = {};
-  for (let p = 1; p <= 9; p++) grid[p] = {};
-  const skip = {};
-  bloques.forEach(b => {
-    grid[b.ini][b.dia] = { materia: b.materia, docente: b.docente, rowspan: b.fin - b.ini + 1, color: colorMap[b.materia] };
-    for (let p = b.ini + 1; p <= b.fin; p++) skip[p + '-' + b.dia] = true;
-  });
-  let tabla = '<div class="table-wrap"><table class="horario-table"><thead><tr><th>Hora</th>';
-  HORARIO_DIAS.forEach(d => tabla += `<th>${d}</th>`);
-  tabla += '</tr></thead><tbody>';
-  for (let p = 1; p <= 9; p++) {
-    tabla += `<tr><td class="horario-hora">${HORARIO_PERIODOS[p-1][0]}–${HORARIO_PERIODOS[p-1][1]}</td>`;
-    HORARIO_DIAS.forEach(d => {
-      if (skip[p + '-' + d]) return;
-      const cell = grid[p][d];
-      if (cell) {
-        tabla += `<td rowspan="${cell.rowspan}"><div class="horario-cell ${cell.color}">${cell.materia}${cell.docente ? `<span class="doc">${cell.docente}</span>` : ''}</div></td>`;
-      } else {
-        tabla += '<td></td>';
-      }
-    });
-    tabla += '</tr>';
-  }
-  tabla += '</tbody></table></div>';
-
-  // ── Agenda apilada (mobile) ──
   let agenda = '<div class="horario-agenda">';
   HORARIO_DIAS.forEach(d => {
     const bloquesDia = bloques.filter(b => b.dia === d).sort((a, b) => a.ini - b.ini);
@@ -3637,17 +3590,22 @@ function renderHorario(containerId, dataKey) {
     bloquesDia.forEach(b => {
       const horaIni = HORARIO_PERIODOS[b.ini - 1][0];
       const horaFin = HORARIO_PERIODOS[b.fin - 1][1];
-      agenda += `<div class="horario-agenda-item ${colorMap[b.materia]}"><span class="horario-agenda-hora">${horaIni}–${horaFin}</span><span class="horario-agenda-materia">${b.materia}</span>${b.docente ? `<span class="doc">${b.docente}</span>` : ''}</div>`;
+      agenda += `<div class="horario-agenda-item ${colorMap[b.materia]}"><span class="horario-agenda-hora">${horaIni}–${horaFin}</span><span class="horario-agenda-materia">${b.materia}</span>${b.docente ? `<span class="horario-agenda-doc">${b.docente}</span>` : ''}</div>`;
     });
     agenda += '</div>';
   });
   agenda += '</div>';
 
-  document.getElementById(containerId).innerHTML =
-    `<div class="horario-desktop">${tabla}</div><div class="horario-mobile">${agenda}</div>`;
+  document.getElementById(containerId).innerHTML = agenda;
 }
 
-Object.keys(HORARIOS_DATA).forEach(key => renderHorario(key + '-tabla', key));
+function selectHorario(dataKey, btn) {
+  btn.parentElement.querySelectorAll('.horario-sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderHorario('horarios-contenido', dataKey);
+}
+
+renderHorario('horarios-contenido', 'hor-notec-ac');
 
 cargarDatos();
 
