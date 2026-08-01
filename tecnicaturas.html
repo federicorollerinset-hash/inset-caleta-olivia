@@ -479,6 +479,7 @@
         <button class="tab active" onclick="switchTab('tab-materias', this)">Todas las materias</button>
         <button class="tab" onclick="switchTab('tab-habilitadas', this)">Puede rendir</button>
         <button class="tab" onclick="switchTab('tab-historial', this)">Historial cargado</button>
+        <button class="tab" onclick="switchTab('tab-tray-legajo', this); cargarLegajoTrayectoria()">Legajo</button>
       </div>
 
       <div id="tab-materias">
@@ -489,6 +490,11 @@
       </div>
       <div id="tab-historial" style="display:none">
         <div id="tray-historial-lista"></div>
+      </div>
+      <div id="tab-tray-legajo" style="display:none">
+        <div class="card">
+          <div id="tray-legajo-grid-cont"></div>
+        </div>
       </div>
     </div>
 
@@ -2509,6 +2515,7 @@ function verTrayectoria(id) {
   document.getElementById('tab-materias').style.display='block';
   document.getElementById('tab-habilitadas').style.display='none';
   document.getElementById('tab-historial').style.display='none';
+  document.getElementById('tab-tray-legajo').style.display='none';
 }
 
 // ─── GUARDAR ESTUDIANTE ──────────────────────────────────────────
@@ -4889,7 +4896,7 @@ async function cargarLegajos() {
           const leg = (esReciente && !Object.keys(legRaw).some(k => DOCS_LEGAJO.some(d=>d.key===k)))
             ? Object.fromEntries(DOCS_LEGAJO.map(d=>[d.key,'entregado']))
             : legRaw;
-          return `<tr style="border-bottom:1px solid var(--border);" onmouseenter="this.style.background='rgba(79,142,247,0.04)'" onmouseleave="this.style.background=''">
+          return `<tr style="border-bottom:1px solid var(--border);cursor:pointer;" onclick="editarLegajoRapido('${e.id}')" onmouseenter="this.style.background='rgba(79,142,247,0.04)'" onmouseleave="this.style.background=''">
             <td style="padding:8px 12px;font-weight:500;">${e.nombre}${esReciente?` <span style="font-size:10px;color:var(--success);font-weight:600;">${e.ingreso}</span>`:''}</td>
             <td style="padding:8px 12px;"><span class="badge ${e.carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:10px;">${e.carrera}</span></td>
             ${DOCS_LEGAJO.map(d => {
@@ -4897,7 +4904,7 @@ async function cargarLegajos() {
               return `<td style="text-align:center;padding:6px;" title="${ESTADO_DOC[est]?.label||'Falta'}">${tipo_icon[est]||'🔴'}</td>`;
             }).join('')}
             <td style="padding:8px 12px;font-size:11px;color:var(--text3);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${leg.obs||''}</td>
-            <td style="padding:6px;"><button class="btn btn-ghost btn-sm" onclick="editarLegajoRapido('${e.id}')" style="font-size:11px;padding:3px 8px;">Editar</button></td>
+            <td style="padding:6px;"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editarLegajoRapido('${e.id}')" style="font-size:11px;padding:3px 8px;">Editar</button></td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -5016,6 +5023,71 @@ async function cargarLegajosDB() {
       try { legajos[r.estudiante_id] = JSON.parse(r.datos); } catch(e){}
     });
   } catch(e) { /* tabla no existe aún */ }
+}
+
+// ── LEGAJO DENTRO DE LA FICHA DEL ESTUDIANTE (Trayectoria) ─────────
+function cargarLegajoTrayectoria() {
+  if (!estudianteActual) return;
+  const estId = estudianteActual.id;
+  const ingreso = parseInt(estudianteActual.ingreso);
+  const esReciente = ingreso >= 2024;
+
+  if (esReciente && !legajos[estId]) {
+    legajos[estId] = {};
+    DOCS_LEGAJO.forEach(d => { legajos[estId][d.key] = 'entregado'; });
+  }
+  const leg = legajos[estId] || {};
+
+  const avisoReciente = esReciente ? `<div style="background:rgba(26,122,82,0.08);border:1px solid rgba(26,122,82,0.2);border-radius:7px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--success);">
+    ✅ Estudiante ingresante ${ingreso} — documentación pre-cargada como entregada. Modificá lo que no corresponda.
+  </div>` : '';
+
+  const grid = DOCS_LEGAJO.map(d => {
+    const val = leg[d.key] || 'falta';
+    const esTitle = d.key === 'titulo';
+    return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;">
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        ${d.label}
+        ${esTitle?'<span style="font-size:10px;color:var(--warning);font-weight:400;">(puede estar en trámite o Art.7°)</span>':''}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${Object.entries(ESTADO_DOC).filter(([k])=> esTitle || !['tramite','art7'].includes(k)).map(([k,v])=>
+          `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:4px 8px;border-radius:5px;border:1px solid ${val===k?v.color:'var(--border)'};background:${val===k?v.bg:'transparent'};font-size:12px;color:${val===k?v.color:'var(--text2)'};">
+            <input type="radio" name="doc_${d.key}_${estId}" value="${k}" ${val===k?'checked':''} onchange="actualizarDocLegajo('${estId}','${d.key}',this.value)" style="display:none;">
+            ${v.label}
+          </label>`
+        ).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('tray-legajo-grid-cont').innerHTML = `
+    <div style="font-size:12px;font-family:var(--mono);color:var(--accent);text-transform:uppercase;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border);">Estado de documentos requeridos</div>
+    ${avisoReciente}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">${grid}</div>
+    <div class="form-group" style="margin-bottom:14px;">
+      <label>Observaciones generales</label>
+      <input type="text" id="tray-legajo-obs" value="${(leg.obs||'').replace(/"/g,'&quot;')}" placeholder="Ej: Título en trámite — vence 30/06">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-success" onclick="guardarLegajoTrayectoria()">Guardar legajo</button>
+    </div>`;
+}
+
+async function guardarLegajoTrayectoria() {
+  if (!estudianteActual) return;
+  const estId = estudianteActual.id;
+  if (!legajos[estId]) legajos[estId] = {};
+  legajos[estId].obs = document.getElementById('tray-legajo-obs').value.trim();
+
+  try {
+    const payload = { estudiante_id: estId, datos: JSON.stringify(legajos[estId]) };
+    await fetch(`${SB_URL}/rest/v1/legajos?estudiante_id=eq.${estId}`, { method: 'DELETE', headers: SB_H });
+    await sbPost('legajos', payload);
+    showToast('Legajo guardado correctamente');
+  } catch (e) {
+    showToast('Legajo guardado (local) — creá la tabla en Supabase para persistir');
+  }
 }
 
 // ── FECHAS IMPORTANTES (ADMIN) ────────────────────────────────────
