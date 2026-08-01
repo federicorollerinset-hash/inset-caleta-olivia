@@ -1864,6 +1864,118 @@ async function generarActaVolante(mesaId, nombreMat, mod, fecha) {
   }
 }
 
+// ─── CARGAR RESULTADOS DE MESA (masivo) ────────────────────────
+async function abrirModalResultadosMesa(mesaId, nombreMat, mod, periodo, fecha) {
+  const insc = await sbGet('inscripciones', `mesa_id=eq.${mesaId}&estado=eq.inscripto&order=created_at.asc`);
+  if (!insc.length) { alert('Esta mesa no tiene inscriptos.'); return; }
+  const alumnos = insc.map(i => estudiantes.find(e => e.id === i.estudiante_id)).filter(Boolean)
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+
+  const esPrimerAnio = Number(mod) <= 11;
+
+  const filaHtml = (a) => `
+    <tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px 10px;font-size:13px;">${a.nombre}</td>
+      <td style="padding:6px 10px;font-size:12px;color:var(--text3);">${a.dni || '—'}</td>
+      <td style="padding:6px 10px;"><input type="number" min="4" max="10" data-est="${a.id}" class="rm-nota" style="width:70px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:13px;" placeholder="—"></td>
+    </tr>`;
+
+  const bloque = (titulo, lista, keyPrefix) => `
+    <div style="margin-bottom:18px;">
+      ${titulo ? `<div style="font-weight:500;font-size:13px;margin-bottom:8px;color:var(--text2);">${titulo}</div>` : ''}
+      <div style="display:flex;gap:10px;margin-bottom:10px;">
+        <div class="form-group" style="flex:1;margin-bottom:0;">
+          <label style="font-size:11px;">Libro</label>
+          <input type="text" id="${keyPrefix}-libro" placeholder="Ej: 20" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;">
+        </div>
+        <div class="form-group" style="flex:1;margin-bottom:0;">
+          <label style="font-size:11px;">Folio</label>
+          <input type="text" id="${keyPrefix}-folio" placeholder="Ej: 2" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;">
+        </div>
+      </div>
+      ${!lista.length ? '<p style="font-size:12px;color:var(--text3);">Sin inscriptos en este grupo.</p>' : `
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px 10px;font-size:11px;">Estudiante</th><th style="text-align:left;padding:6px 10px;font-size:11px;">DNI</th><th style="text-align:left;padding:6px 10px;font-size:11px;">Nota</th></tr></thead>
+        <tbody data-bloque="${keyPrefix}">${lista.map(filaHtml).join('')}</tbody>
+      </table>`}
+    </div>`;
+
+  let contenido;
+  if (esPrimerAnio) {
+    const gre = alumnos.filter(a => a.carrera === 'GRE');
+    const mi  = alumnos.filter(a => a.carrera === 'MI');
+    contenido = bloque('Generación y Redes Eléctricas — libro propio', gre, 'rm-gre') +
+                bloque('Mantenimiento Industrial — libro propio', mi, 'rm-mi');
+  } else {
+    contenido = bloque(null, alumnos, 'rm-unico');
+  }
+
+  let modal = document.getElementById('modal-resultados-mesa');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-resultados-mesa';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;';
+    modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:640px;margin:16px;max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div id="rm-titulo" style="font-size:15px;font-weight:500;"></div>
+        <button onclick="document.getElementById('modal-resultados-mesa').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text3);">×</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">Solo se guardan los estudiantes con nota cargada. Ausentes o desaprobados: dejar en blanco, no se modifica nada.</div>
+      <div id="rm-body"></div>
+      <button class="btn btn-success" style="width:100%;margin-top:8px;" onclick="guardarResultadosMesa()">Guardar resultados</button>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  document.getElementById('rm-titulo').textContent = nombreMat;
+  document.getElementById('rm-body').innerHTML = contenido;
+  modal.dataset.mod = mod;
+  modal.dataset.periodo = periodo;
+  modal.dataset.fecha = fecha;
+  modal.style.display = 'flex';
+}
+
+async function guardarResultadosMesa() {
+  const modal = document.getElementById('modal-resultados-mesa');
+  const mod = parseInt(modal.dataset.mod);
+  const periodo = modal.dataset.periodo;
+  const fecha = modal.dataset.fecha;
+  const anio = PERIODO_A_ANIO[periodo] || null;
+
+  const bloques = [...modal.querySelectorAll('tbody[data-bloque]')].map(tb => tb.dataset.bloque);
+  const payloads = [];
+  for (const key of bloques) {
+    const libroEl = document.getElementById(`${key}-libro`);
+    const folioEl = document.getElementById(`${key}-folio`);
+    const libro = libroEl ? libroEl.value.trim() : '';
+    const folio = folioEl ? folioEl.value.trim() : '';
+    modal.querySelectorAll(`tbody[data-bloque="${key}"] .rm-nota`).forEach(inp => {
+      const val = inp.value.trim();
+      if (!val) return;
+      const nota = parseInt(val);
+      if (isNaN(nota) || nota < 4 || nota > 10) return;
+      payloads.push({ estudiante_id: inp.dataset.est, mod, estado: 'aprobada', fecha_final: fecha || null, nota, anio, libro: libro || null, folio: folio || null });
+    });
+  }
+
+  if (!payloads.length) { alert('No cargaste ninguna nota.'); return; }
+
+  mostrarCargando(true);
+  try {
+    for (const p of payloads) {
+      const res = await sbUpsert('registros', p);
+      const nuevo = { ...res[0], estudianteId: res[0].estudiante_id };
+      const idx = registros.findIndex(r => r.estudianteId === nuevo.estudianteId && r.mod === nuevo.mod);
+      if (idx >= 0) registros[idx] = { ...registros[idx], ...nuevo }; else registros.push(nuevo);
+    }
+    showToast(`${payloads.length} resultado${payloads.length !== 1 ? 's' : ''} guardado${payloads.length !== 1 ? 's' : ''}`);
+    modal.style.display = 'none';
+    updateSidebar();
+  } catch (e) {
+    alert('Error al guardar: ' + e.message);
+  }
+  mostrarCargando(false);
+}
+
 // ─── SUPABASE ─────────────────────────────────────────────────
 const SB_URL = 'https://jqjkhgynbjlxdfituplx.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxamtoZ3luYmpseGRmaXR1cGx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDUwMzkxMSwiZXhwIjoyMDk2MDc5OTExfQ.Yx63xZCpkMz7yf4_4ftiri7Lp3oK8tHBpquDQ6pFRKA';
@@ -1913,6 +2025,7 @@ async function sbUpsert(tabla, data, onConflict='estudiante_id,mod') {
 
 let estudiantes = [];
 let registros   = [];
+let inscCursadoPorMod = {}; // último resultado de cargarInscriptosCursadoAdmin, agrupado por mod
 let modoEdicion = null; // {estudianteId, mod} cuando se está editando
 
 async function cargarDatos() {
@@ -4061,13 +4174,17 @@ async function cargarInscriptosCursadoAdmin() {
 
     const nombresMap = {};
     estudiantes.forEach(e => { nombresMap[e.id] = { nombre: e.nombre, carrera: e.carrera }; });
+    inscCursadoPorMod = porMod;
 
     cont.innerHTML = Object.entries(porMod).map(([mod, lista]) => {
       const nombreMat = getNombreMateria(parseInt(mod), lista[0]?.carrera || 'GRE');
       return `<div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${lista.length?'10px':'0'}">
           <div style="font-weight:500;font-size:14px;">Mód. ${mod} — ${nombreMat}</div>
-          <span class="badge badge-info">${lista.length} inscripto${lista.length!==1?'s':''}</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="badge badge-info">${lista.length} inscripto${lista.length!==1?'s':''}</span>
+            <button class="btn btn-success btn-sm" onclick="abrirModalResultadosCursado(${mod},'${nombreMat.replace(/'/g,"\\'")}')">Cargar resultados</button>
+          </div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
           ${lista.map(i => {
@@ -4080,6 +4197,116 @@ async function cargarInscriptosCursadoAdmin() {
   } catch(e) { cont.innerHTML = `<div class="empty"><p>Error: ${e.message}</p></div>`; }
 }
 
+// ─── CARGAR RESULTADOS DE CURSADO (masivo) ─────────────────────
+async function abrirModalResultadosCursado(mod, nombreMat) {
+  const lista = inscCursadoPorMod[mod] || [];
+  if (!lista.length) { alert('No hay inscriptos para esta materia.'); return; }
+
+  const alumnos = lista
+    .map(i => { const e = estudiantes.find(x=>x.id===i.estudiante_id); return e ? { ...e, periodoId: i.periodo_id } : null; })
+    .filter(Boolean)
+    .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+
+  // Si todos los inscriptos son del mismo período, precargo el cuatrimestre
+  let cuatriSugerido = '';
+  const periodosUnicos = [...new Set(alumnos.map(a=>a.periodoId))];
+  if (periodosUnicos.length === 1 && periodosUnicos[0]) {
+    try {
+      const per = await sbGet('periodos_cursado', `id=eq.${periodosUnicos[0]}`);
+      if (per[0]) cuatriSugerido = per[0].cuatrimestre || '';
+    } catch(e) {}
+  }
+
+  const filaHtml = (a) => `
+    <tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px 10px;font-size:13px;">${a.nombre} <span class="badge ${a.carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${a.carrera}</span></td>
+      <td style="padding:6px 10px;">
+        <select data-est="${a.id}" class="rc-estado" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;">
+          <option value="">— Sin definir —</option>
+          <option value="regular">Regular</option>
+          <option value="no_regular">No regular</option>
+          <option value="ausente">Ausente</option>
+        </select>
+      </td>
+    </tr>`;
+
+  let modal = document.getElementById('modal-resultados-cursado');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-resultados-cursado';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;';
+    modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:560px;margin:16px;max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div id="rc-titulo" style="font-size:15px;font-weight:500;"></div>
+        <button onclick="document.getElementById('modal-resultados-cursado').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text3);">×</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">Solo se guardan los marcados como Regular. No regular y Ausente no modifican nada.</div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;">
+        <div class="form-group" style="flex:1;margin-bottom:0;">
+          <label style="font-size:11px;">Fecha de cursado *</label>
+          <input type="date" id="rc-fecha" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;">
+        </div>
+        <div class="form-group" style="flex:1;margin-bottom:0;">
+          <label style="font-size:11px;">Cuatrimestre</label>
+          <select id="rc-cuatrimestre" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;">
+            <option value="">— Seleccioná —</option>
+            <option value="1C">1° Cuatrimestre</option>
+            <option value="2C">2° Cuatrimestre</option>
+            <option value="Anual">Anual</option>
+          </select>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:var(--bg3)"><th style="text-align:left;padding:6px 10px;font-size:11px;">Estudiante</th><th style="text-align:left;padding:6px 10px;font-size:11px;">Resultado</th></tr></thead>
+        <tbody id="rc-body"></tbody>
+      </table>
+      <button class="btn btn-success" style="width:100%;margin-top:16px;" onclick="guardarResultadosCursado()">Guardar resultados</button>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  document.getElementById('rc-titulo').textContent = nombreMat;
+  document.getElementById('rc-body').innerHTML = alumnos.map(filaHtml).join('');
+  document.getElementById('rc-fecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('rc-cuatrimestre').value = cuatriSugerido;
+  modal.dataset.mod = mod;
+  modal.style.display = 'flex';
+}
+
+async function guardarResultadosCursado() {
+  const modal = document.getElementById('modal-resultados-cursado');
+  const mod = parseInt(modal.dataset.mod);
+  const fecha = document.getElementById('rc-fecha').value;
+  const cuatri = document.getElementById('rc-cuatrimestre').value;
+  if (!fecha) { alert('Ingresá la fecha de cursado.'); return; }
+
+  const filas = [...modal.querySelectorAll('.rc-estado')];
+  const regulares = filas.filter(s => s.value === 'regular');
+  if (!regulares.length) { alert('No marcaste a nadie como Regular.'); return; }
+
+  const yaAprobados = [];
+  mostrarCargando(true);
+  try {
+    for (const sel of regulares) {
+      const estudianteId = sel.dataset.est;
+      const existente = registros.find(r=>r.estudianteId===estudianteId && r.mod===mod);
+      if (existente && existente.estado === 'aprobada') { yaAprobados.push(estudianteId); continue; }
+      const payload = { estudiante_id: estudianteId, mod, estado: 'regular', fecha_cursado: fecha, cuatrimestre: cuatri || null };
+      const res = await sbUpsert('registros', payload);
+      const nuevo = { ...res[0], estudianteId: res[0].estudiante_id };
+      const idx = registros.findIndex(r=>r.estudianteId===nuevo.estudianteId && r.mod===nuevo.mod);
+      if (idx >= 0) registros[idx] = { ...registros[idx], ...nuevo }; else registros.push(nuevo);
+    }
+    let msg = `${regulares.length - yaAprobados.length} regularidad${(regulares.length-yaAprobados.length)!==1?'es':''} guardada${(regulares.length-yaAprobados.length)!==1?'s':''}`;
+    if (yaAprobados.length) msg += ` (${yaAprobados.length} ya tenía final aprobado, no se tocó)`;
+    showToast(msg);
+    modal.style.display = 'none';
+    updateSidebar();
+  } catch(e) {
+    alert('Error al guardar: ' + e.message);
+  }
+  mostrarCargando(false);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // MESAS DE EXAMEN — SECRETARÍA
 // ═══════════════════════════════════════════════════════════════
@@ -4089,6 +4316,8 @@ const PERIODOS = {
   'Dic': 'Diciembre', 'Abr-Ext': 'Abril (extraordinaria)',
   'Sep-Ext': 'Septiembre (extraordinaria)'
 };
+// Etiqueta corta que usa el campo "anio" de registros (mismo formato que la carga individual: Feb/Abr/Jul/Sep/Dic)
+const PERIODO_A_ANIO = { 'Feb-Mar':'Feb', 'Jul-Ago':'Jul', 'Dic':'Dic', 'Abr-Ext':'Abr', 'Sep-Ext':'Sep' };
 
 function poblarMateriasAdmin() {
   const carrera = document.getElementById('m-carrera').value;
@@ -4418,6 +4647,7 @@ async function cargarInscriptosAdmin() {
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span class="badge badge-info">${insc.length} inscripto${insc.length!==1?'s':''}</span>
+            <button class="btn btn-success btn-sm" onclick="abrirModalResultadosMesa('${m.id}','${nombreMat.replace(/'/g,"\\'")}', ${m.mod}, '${m.periodo||''}', '${m.fecha||''}')" ${insc.length?'':'disabled'}>Cargar resultados</button>
             <button class="btn btn-primary btn-sm" onclick="generarActaVolante('${m.id}','${nombreMat.replace(/'/g,"\\'")}', ${m.mod}, '${m.fecha||''}')" ${insc.length?'':'disabled'}>Generar acta</button>
             <button class="btn btn-danger btn-sm" onclick="eliminarLlamado('${m.id}','${nombreMat.replace(/'/g,"\\'")}')">Eliminar</button>
           </div>
