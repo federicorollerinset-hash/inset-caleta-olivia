@@ -5003,7 +5003,7 @@ async function guardarLegajo() {
 
   // Persistir en Supabase (tabla legajos con columna estudiante_id + doc estados JSON)
   try {
-    const payload = { estudiante_id: estId, datos: JSON.stringify(legajos[estId]) };
+    const payload = { estudiante_id: estId, datos: legajos[estId] };
     await fetch(`${SB_URL}/rest/v1/legajos?estudiante_id=eq.${estId}`, {
       method: 'DELETE', headers: SB_H
     });
@@ -5020,7 +5020,7 @@ async function cargarLegajosDB() {
   try {
     const rows = await sbGet('legajos', 'order=estudiante_id');
     rows.forEach(r => {
-      try { legajos[r.estudiante_id] = JSON.parse(r.datos); } catch(e){}
+      if (r.datos) legajos[r.estudiante_id] = typeof r.datos === 'string' ? JSON.parse(r.datos) : r.datos;
     });
   } catch(e) { /* tabla no existe aún */ }
 }
@@ -5081,7 +5081,7 @@ async function guardarLegajoTrayectoria() {
   legajos[estId].obs = document.getElementById('tray-legajo-obs').value.trim();
 
   try {
-    const payload = { estudiante_id: estId, datos: JSON.stringify(legajos[estId]) };
+    const payload = { estudiante_id: estId, datos: legajos[estId] };
     await fetch(`${SB_URL}/rest/v1/legajos?estudiante_id=eq.${estId}`, { method: 'DELETE', headers: SB_H });
     await sbPost('legajos', payload);
     showToast('Legajo guardado correctamente');

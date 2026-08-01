@@ -1285,7 +1285,7 @@ async function cargarLegajoPortal() {
   let leg = {};
   try {
     const rows = await sbGet('legajos', `estudiante_id=eq.${est.id}`);
-    if (rows.length) leg = JSON.parse(rows[0].datos || '{}');
+    if (rows.length && rows[0].datos) leg = typeof rows[0].datos === 'string' ? JSON.parse(rows[0].datos) : rows[0].datos;
   } catch(e) { /* tabla no existe o sin datos */ }
 
   // Para 2024 y 2025: todos los docs en verde si no tienen datos cargados
