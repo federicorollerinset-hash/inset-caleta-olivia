@@ -497,6 +497,13 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
             </select>
           </div>
 
+          <div id="form-general-inscripcion" style="display:none;">
+            <div class="form-group" style="margin-bottom:12px;">
+              <label>¿Ante quién se presenta?</label>
+              <input type="text" id="gen-destino" placeholder="Ej: empleador, ANSES, etc." style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+            </div>
+          </div>
+
           <div id="form-general-examen" style="display:none;">
             <div style="font-size:12px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;margin:14px 0 10px;">Datos del examen</div>
             <div class="form-group" style="margin-bottom:12px;">
@@ -533,10 +540,26 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
         <div id="form-escolaridad" style="display:none;margin-top:16px;border:1px solid var(--border);border-radius:10px;padding:18px;">
           <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:14px;font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;">Datos adicionales — Certificado de escolaridad</div>
           <div class="form-group" style="margin-bottom:12px;">
+            <label>Fecha de nacimiento</label>
+            <input type="date" id="esc-fecha-nacimiento" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
             <label>Edad</label>
             <input type="number" id="esc-edad" placeholder="Ej: 22" min="15" max="99" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
           </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Fecha de ingreso a la institución</label>
+            <input type="date" id="esc-fecha-ingreso" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+          </div>
           <div style="font-size:12px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.05em;margin:14px 0 10px;">Datos del padre / madre / tutor</div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label>Parentesco</label>
+            <select id="esc-parentesco" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
+              <option value="padre">Padre</option>
+              <option value="madre">Madre</option>
+              <option value="tutor/a">Tutor/a</option>
+            </select>
+          </div>
           <div class="form-group" style="margin-bottom:12px;">
             <label>Apellido y nombre</label>
             <input type="text" id="esc-tutor-nombre" placeholder="Ej: García, Roberto" style="background:var(--bg3);border:1px solid var(--border);padding:9px 12px;border-radius:7px;font-size:14px;width:100%;outline:none;">
@@ -1875,7 +1898,7 @@ function abrirConstanciaEscolaridad() {
 }
 function cerrarEscolaridad() {
   document.getElementById('form-escolaridad').style.display = 'none';
-  ['esc-edad','esc-tutor-nombre','esc-tutor-dni','esc-destino'].forEach(id => document.getElementById(id).value = '');
+  ['esc-fecha-nacimiento','esc-edad','esc-fecha-ingreso','esc-tutor-nombre','esc-tutor-dni','esc-destino'].forEach(id => document.getElementById(id).value = '');
 }
 // ─── FORMULARIO GENERAL DE CONSTANCIAS ────────────────────────────
 const TIPO_LABEL_CONST = {
@@ -1900,6 +1923,10 @@ function abrirConstanciaGeneral(tipo) {
   document.getElementById('gen-edad').value    = '';
   document.getElementById('gen-carrera').value = est.carrera || 'GRE';
   document.getElementById('gen-anio').value    = '1';
+
+  const esInscripcion = tipo === 'inscripcion';
+  document.getElementById('form-general-inscripcion').style.display = esInscripcion ? 'block' : 'none';
+  if (esInscripcion) document.getElementById('gen-destino').value = '';
 
   const esExamen = tipo === 'examen_por_rendir' || tipo === 'examen_rendido';
   document.getElementById('form-general-examen').style.display = esExamen ? 'block' : 'none';
@@ -1938,6 +1965,13 @@ async function enviarConstanciaGeneral() {
   const datos = { nombre, dni, edad, carrera, anio };
   let detalle = `${nombre} · DNI ${dni} · ${edad} años · ${carreraLabel} · ${anio}° año`;
 
+  if (tipo === 'inscripcion') {
+    const destino = document.getElementById('gen-destino').value.trim();
+    if (!destino) { alert('Completá ante quién se presenta.'); return; }
+    datos.destino = destino;
+    detalle += ` · Ante: ${destino}`;
+  }
+
   const esExamen = tipo === 'examen_por_rendir' || tipo === 'examen_rendido';
   if (esExamen) {
     const tipoExamen  = document.getElementById('gen-tipoexamen').value;
@@ -1971,17 +2005,20 @@ async function enviarConstanciaGeneral() {
 }
 
 async function enviarEscolaridad() {
+  const fechaNacimiento = document.getElementById('esc-fecha-nacimiento').value;
   const edad        = document.getElementById('esc-edad').value.trim();
+  const fechaIngreso = document.getElementById('esc-fecha-ingreso').value;
+  const parentesco  = document.getElementById('esc-parentesco').value;
   const tutorNombre = document.getElementById('esc-tutor-nombre').value.trim();
   const tutorDni    = document.getElementById('esc-tutor-dni').value.trim();
   const destino     = document.getElementById('esc-destino').value.trim();
-  if (!edad) { alert('Ingresá tu edad.'); return; }
+  if (!fechaNacimiento || !edad || !fechaIngreso || !tutorNombre || !tutorDni) { alert('Completá todos los campos.'); return; }
   try {
     await sbPost('constancias', {
       estudiante_id: sesion.estudiante.id,
       tipo: 'escolaridad',
       estado: 'pendiente',
-      datos: JSON.stringify({ edad, tutorNombre, tutorDni, destino })
+      datos: JSON.stringify({ fechaNacimiento, edad, fechaIngreso, parentesco, tutorNombre, tutorDni, destino })
     });
     await guardarSolicitud('Constancia de escolaridad', `Destino: ${destino||'no especificado'}`);
     showToast('Solicitud enviada ✓ — Secretaría fue notificada');
