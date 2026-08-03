@@ -1745,6 +1745,11 @@
         <button onclick="cerrarCargaMasivaFechaNac()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);">×</button>
       </div>
       <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Completá la fecha de cada estudiante y guardá. Los que ya tienen fecha cargada se muestran al final.</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('input-csv-fecha-nac').click()">📥 Importar CSV (DNI + fecha de nacimiento)</button>
+        <input type="file" id="input-csv-fecha-nac" accept=".csv" style="display:none;" onchange="importarCsvFechaNac(this.files[0])">
+      </div>
+      <div id="resultado-import-csv-fn" style="font-size:12px;color:var(--text3);margin-bottom:10px;"></div>
       <input class="search-input" type="text" id="buscar-fecha-nac-masiva" placeholder="Buscar por nombre..." oninput="filtrarFechaNacMasiva()" style="margin-bottom:12px;">
       <div id="lista-fecha-nac-masiva" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;margin-bottom:16px;"></div>
       <div style="display:flex;gap:10px;align-items:center;">
@@ -2349,9 +2354,77 @@ async function guardarEdicionEstudiante() {
   mostrarCargando(false);
 }
 
+function normalizarDni(v) {
+  return String(v || '').replace(/[.\s]/g, '').trim();
+}
+
+// Parser CSV simple: soporta comas, comillas y CRLF (suficiente para la exportación de Google Sheets).
+function parsearCSV(texto) {
+  const filas = [];
+  let fila = [], campo = '', enComillas = false;
+  for (let i = 0; i < texto.length; i++) {
+    const c = texto[i];
+    if (enComillas) {
+      if (c === '"' && texto[i+1] === '"') { campo += '"'; i++; }
+      else if (c === '"') { enComillas = false; }
+      else campo += c;
+    } else {
+      if (c === '"') enComillas = true;
+      else if (c === ',') { fila.push(campo); campo = ''; }
+      else if (c === '\r') continue;
+      else if (c === '\n') { fila.push(campo); filas.push(fila); fila = []; campo = ''; }
+      else campo += c;
+    }
+  }
+  if (campo || fila.length) { fila.push(campo); filas.push(fila); }
+  return filas.filter(f => f.some(c => c.trim() !== ''));
+}
+
+// Acepta fechas en formato DD/MM/AAAA (lo que exporta Google Forms) o AAAA-MM-DD.
+function normalizarFechaAISO(v) {
+  v = String(v || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return null;
+}
+
+async function importarCsvFechaNac(file) {
+  if (!file) return;
+  const resEl = document.getElementById('resultado-import-csv-fn');
+  const texto = await file.text();
+  const filas = parsearCSV(texto);
+  if (filas.length < 2) { resEl.textContent = 'El archivo no tiene filas de datos.'; return; }
+
+  const header = filas[0].map(h => h.toLowerCase().trim());
+  const colDni = header.findIndex(h => h.includes('dni'));
+  const colFecha = header.findIndex(h => h.includes('fecha') || h.includes('nacimiento'));
+  if (colDni === -1 || colFecha === -1) {
+    resEl.textContent = 'No encontré columnas de DNI y de fecha de nacimiento en el CSV. Revisá los encabezados.';
+    return;
+  }
+
+  let matched = 0, sinMatch = 0, fechaInvalida = 0;
+  for (const fila of filas.slice(1)) {
+    const dniCsv = normalizarDni(fila[colDni]);
+    const fechaIso = normalizarFechaAISO(fila[colFecha]);
+    if (!dniCsv) continue;
+    if (!fechaIso) { fechaInvalida++; continue; }
+    const est = estudiantes.find(e => normalizarDni(e.dni) === dniCsv);
+    if (!est) { sinMatch++; continue; }
+    const input = document.querySelector(`.input-fecha-nac-masiva[data-id="${est.id}"]`);
+    if (input) { input.value = fechaIso; matched++; }
+  }
+  resEl.textContent = `Importado: ${matched} coincidencias por DNI` +
+    (sinMatch ? `, ${sinMatch} DNI sin estudiante encontrado` : '') +
+    (fechaInvalida ? `, ${fechaInvalida} con fecha en formato inválido` : '') +
+    '. Revisá la lista y guardá.';
+}
+
 // ─── CARGA MASIVA DE FECHAS DE NACIMIENTO ──────────────────────────
 function abrirCargaMasivaFechaNac() {
   document.getElementById('buscar-fecha-nac-masiva').value = '';
+  document.getElementById('resultado-import-csv-fn').textContent = '';
   renderListaFechaNacMasiva();
   document.getElementById('modal-fecha-nac-masiva').style.display = 'flex';
 }
