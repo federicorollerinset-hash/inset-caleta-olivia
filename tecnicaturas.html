@@ -422,6 +422,7 @@
       <div class="search-row">
         <input class="search-input" type="text" id="buscar-nombre" placeholder="Buscar por nombre..." oninput="filtrarEstudiantes()">
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="abrirCargaMasivaFechaNac()">📅 Cargar fechas de nacimiento</button>
           <select id="filtro-carrera" onchange="filtrarEstudiantes()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text2);padding:9px 12px;border-radius:7px;font-family:var(--sans);font-size:13px;outline:none;">
             <option value="">Todas las carreras</option>
             <option value="GRE">Generación y Redes</option>
@@ -1697,7 +1698,11 @@
             <option value="no-tecnico">No técnico</option>
           </select>
         </div>
-        <div class="form-group" style="grid-column:1/-1">
+        <div class="form-group">
+          <label>Fecha de nacimiento</label>
+          <input type="date" id="edit-est-fecha-nacimiento">
+        </div>
+        <div class="form-group">
           <label>Contacto / email</label>
           <input type="text" id="edit-est-contacto">
         </div>
@@ -1728,6 +1733,24 @@
             <button class="btn btn-ghost btn-sm" onclick="ocultarZonaEliminar()">Cancelar</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CARGA MASIVA DE FECHAS DE NACIMIENTO -->
+  <div id="modal-fecha-nac-masiva" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px;width:100%;max-width:560px;margin:16px;max-height:calc(100vh - 32px);overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:16px;font-weight:500;">Cargar fechas de nacimiento</div>
+        <button onclick="cerrarCargaMasivaFechaNac()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);">×</button>
+      </div>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Completá la fecha de cada estudiante y guardá. Los que ya tienen fecha cargada se muestran al final.</p>
+      <input class="search-input" type="text" id="buscar-fecha-nac-masiva" placeholder="Buscar por nombre..." oninput="filtrarFechaNacMasiva()" style="margin-bottom:12px;">
+      <div id="lista-fecha-nac-masiva" style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;margin-bottom:16px;"></div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button class="btn btn-success" onclick="guardarCargaMasivaFechaNac()">Guardar todas las cargadas</button>
+        <button class="btn btn-ghost" onclick="cerrarCargaMasivaFechaNac()">Cerrar</button>
+        <span id="estado-carga-masiva-fn" style="font-size:12px;color:var(--text3);"></span>
       </div>
     </div>
   </div>
@@ -2278,6 +2301,7 @@ function abrirEditarEstudiante(id) {
   document.getElementById('edit-est-nombre').value = e.nombre || '';
   document.getElementById('edit-est-dni').value    = e.dni || '';
   document.getElementById('edit-est-ingreso').value= e.ingreso || '';
+  document.getElementById('edit-est-fecha-nacimiento').value = e.fecha_nacimiento || '';
   document.getElementById('edit-est-carrera').value= e.carrera || '';
   document.getElementById('edit-est-tipo').value   = e.tipo || '';
   document.getElementById('edit-est-contacto').value= e.contacto || '';
@@ -2296,6 +2320,7 @@ async function guardarEdicionEstudiante() {
   const nombre  = document.getElementById('edit-est-nombre').value.trim();
   const dni     = document.getElementById('edit-est-dni').value.trim();
   const ingreso = document.getElementById('edit-est-ingreso').value.trim();
+  const fecha_nacimiento = document.getElementById('edit-est-fecha-nacimiento').value || null;
   const carrera = document.getElementById('edit-est-carrera').value;
   const tipo    = document.getElementById('edit-est-tipo').value;
   const contacto= document.getElementById('edit-est-contacto').value.trim();
@@ -2308,11 +2333,11 @@ async function guardarEdicionEstudiante() {
     const r = await fetch(`${SB_URL}/rest/v1/estudiantes?id=eq.${id}`, {
       method: 'PATCH',
       headers: SB_H,
-      body: JSON.stringify({ nombre, dni: dni||null, ingreso: ingreso||null, carrera, tipo, contacto: contacto||null, estado_est })
+      body: JSON.stringify({ nombre, dni: dni||null, ingreso: ingreso||null, fecha_nacimiento, carrera, tipo, contacto: contacto||null, estado_est })
     });
     if (!r.ok) throw new Error(await r.text());
     const idx = estudiantes.findIndex(e => e.id === id);
-    if (idx >= 0) Object.assign(estudiantes[idx], { nombre, dni, ingreso, carrera, tipo, contacto, estado_est });
+    if (idx >= 0) Object.assign(estudiantes[idx], { nombre, dni, ingreso, fecha_nacimiento, carrera, tipo, contacto, estado_est });
     cerrarEditarEstudiante();
     poblarFiltroAnio();
     renderEstudiantes();
@@ -2322,6 +2347,79 @@ async function guardarEdicionEstudiante() {
     alert('Error al guardar: ' + e.message);
   }
   mostrarCargando(false);
+}
+
+// ─── CARGA MASIVA DE FECHAS DE NACIMIENTO ──────────────────────────
+function abrirCargaMasivaFechaNac() {
+  document.getElementById('buscar-fecha-nac-masiva').value = '';
+  renderListaFechaNacMasiva();
+  document.getElementById('modal-fecha-nac-masiva').style.display = 'flex';
+}
+
+function cerrarCargaMasivaFechaNac() {
+  document.getElementById('modal-fecha-nac-masiva').style.display = 'none';
+  document.getElementById('estado-carga-masiva-fn').textContent = '';
+}
+
+function filtrarFechaNacMasiva() {
+  renderListaFechaNacMasiva();
+}
+
+function renderListaFechaNacMasiva() {
+  const q = document.getElementById('buscar-fecha-nac-masiva').value.trim().toLowerCase();
+  const cont = document.getElementById('lista-fecha-nac-masiva');
+  let lista = estudiantes.filter(e => !q || (e.nombre || '').toLowerCase().includes(q));
+  // Los que ya tienen fecha van al final, para poner el foco en los que faltan.
+  lista = [...lista].sort((a, b) => {
+    const fa = a.fecha_nacimiento ? 1 : 0, fb = b.fecha_nacimiento ? 1 : 0;
+    if (fa !== fb) return fa - fb;
+    return (a.nombre || '').localeCompare(b.nombre || '');
+  });
+  if (!lista.length) {
+    cont.innerHTML = '<p style="font-size:12px;color:var(--text3);text-align:center;padding:12px 0;">Sin resultados.</p>';
+    return;
+  }
+  cont.innerHTML = lista.map(e => `
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);" data-est-id="${e.id}">
+      <div style="flex:1;font-size:13px;${e.fecha_nacimiento ? 'color:var(--text3);' : ''}">${e.nombre}</div>
+      <input type="date" class="input-fecha-nac-masiva" data-id="${e.id}" value="${e.fecha_nacimiento || ''}" style="background:var(--bg3);border:1px solid var(--border);padding:6px 8px;border-radius:6px;font-size:13px;">
+    </div>
+  `).join('');
+}
+
+async function guardarCargaMasivaFechaNac() {
+  const inputs = Array.from(document.querySelectorAll('.input-fecha-nac-masiva'));
+  const cambios = inputs
+    .map(inp => ({ id: inp.dataset.id, valor: inp.value }))
+    .filter(c => {
+      const e = estudiantes.find(x => x.id === c.id);
+      return c.valor && c.valor !== (e?.fecha_nacimiento || '');
+    });
+  if (!cambios.length) { document.getElementById('estado-carga-masiva-fn').textContent = 'No hay cambios para guardar.'; return; }
+
+  const estadoEl = document.getElementById('estado-carga-masiva-fn');
+  mostrarCargando(true);
+  let ok = 0, fail = 0;
+  for (const c of cambios) {
+    try {
+      const r = await fetch(`${SB_URL}/rest/v1/estudiantes?id=eq.${c.id}`, {
+        method: 'PATCH',
+        headers: SB_H,
+        body: JSON.stringify({ fecha_nacimiento: c.valor })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const idx = estudiantes.findIndex(e => e.id === c.id);
+      if (idx >= 0) estudiantes[idx].fecha_nacimiento = c.valor;
+      ok++;
+    } catch (e) {
+      fail++;
+    }
+    estadoEl.textContent = `Guardando... ${ok + fail}/${cambios.length}`;
+  }
+  mostrarCargando(false);
+  estadoEl.textContent = fail ? `Guardadas ${ok}, con error ${fail}.` : `Se guardaron ${ok} fechas correctamente.`;
+  renderListaFechaNacMasiva();
+  showToast(`Fechas de nacimiento guardadas (${ok})`);
 }
 
 // ─── ELIMINAR ESTUDIANTE ───────────────────────────────────────────
@@ -4349,19 +4447,38 @@ function pedirIngresoEgreso() {
   });
 }
 
+function calcularEdad(fechaISO) {
+  const nac = new Date(fechaISO + 'T00:00:00');
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad;
+}
+
 // ─── CERTIFICADO DE ESCOLARIDAD (con datos del padre/madre/tutor) ──────
 async function generarCertificadoEscolaridad(id) {
   const base = datosBaseEstudiante(id);
   if (!base) return;
-  const { nombre, dni, tecnicatura, datos } = base;
+  const { nombre, dni, tecnicatura, datos, est } = base;
 
-  const fechaNacimiento = conFallback(datos, 'fechaNacimiento', 'Fecha de nacimiento del/la estudiante (ej: 14/03/2006):');
-  const edad = conFallback(datos, 'edad', 'Edad del/la estudiante:');
+  let fechaNacimiento, edad;
+  if (est?.fecha_nacimiento) {
+    fechaNacimiento = formatearFechaISO(est.fecha_nacimiento);
+    edad = calcularEdad(est.fecha_nacimiento);
+  } else {
+    fechaNacimiento = conFallback(datos, 'fechaNacimiento', 'Fecha de nacimiento del/la estudiante (ej: 14/03/2006) — no está cargada en la ficha:');
+    if (fechaNacimiento === null) return;
+    fechaNacimiento = fechaNacimiento.includes('-') ? formatearFechaISO(fechaNacimiento) : fechaNacimiento;
+    edad = conFallback(datos, 'edad', 'Edad del/la estudiante:');
+    if (edad === null) return;
+  }
+
   const parentesco = conFallback(datos, 'parentesco', 'Relación del solicitante con el/la estudiante (padre/madre/tutor):');
   const nombreSolicitante = conFallback(datos, 'tutorNombre', 'Nombre y apellido del padre/madre/tutor que solicita:');
   const dniSolicitante = conFallback(datos, 'tutorDni', 'DNI del padre/madre/tutor:');
   const destino = conFallback(datos, 'destino', '¿Ante quién se presenta? (ej: ANSES, escuela, etc.):');
-  if ([fechaNacimiento, edad, parentesco, nombreSolicitante, dniSolicitante, destino].includes(null)) return;
+  if ([parentesco, nombreSolicitante, dniSolicitante, destino].includes(null)) return;
 
   // Ingresado o egresado: depende del momento en que se pide, lo define secretaría, no el estudiante.
   const ie = await pedirIngresoEgreso();
