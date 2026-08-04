@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cómo usar el portal — INSET Caleta Olivia</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --border: #e2e5ea;
+    --text: #1a1d23;
+    --text2: #5b616e;
+    --accent: #1a73e8;
+    --accent-bg: #eaf1fd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+  .wrap { width: 100%; max-width: 420px; }
+  h1 {
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    margin: 0 0 4px;
+  }
+  .sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text2);
+    margin: 0 0 20px;
+  }
+  .dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 16px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+  .dot.active { background: var(--accent); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 20px;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+  }
+  .step-title { font-size: 16px; font-weight: 600; text-align: center; margin: 0 0 8px; }
+  .step-body { font-size: 14px; color: var(--text2); text-align: center; margin: 0 0 20px; line-height: 1.5; }
+  .mock { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .mock-inner { width: 100%; }
+  input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fafafa;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  .field-label { font-size: 11px; color: #8a8f99; margin-bottom: 4px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .tile {
+    background: var(--accent-bg);
+    border-radius: 10px;
+    padding: 14px 8px;
+    text-align: center;
+  }
+  .tile .n { font-size: 20px; font-weight: 600; color: var(--accent); }
+  .tile .l { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .tile-icon { font-size: 20px; }
+  .tile-label { font-size: 11px; margin-top: 6px; color: var(--text); }
+  .pill { background: #f1f2f5; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 6px; }
+  .pill.muted { color: #a5aab3; display: flex; justify-content: space-between; }
+  .checkrow { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .checkrow:last-child { border-bottom: none; }
+  .checkrow.disabled { color: #a5aab3; }
+  .newsrow { display: flex; justify-content: space-between; background: #f1f2f5; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 6px; }
+  .nav { display: flex; justify-content: space-between; margin-top: 16px; }
+  button {
+    border: none;
+    background: none;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    cursor: pointer;
+    padding: 8px 4px;
+  }
+  button:disabled { visibility: hidden; }
+  .link-box {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text2);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cómo usar el portal del estudiante</h1>
+  <p class="sub">INSET Caleta Olivia</p>
+  <div class="dots" id="dots"></div>
+  <div class="card">
+    <div id="stepContent"></div>
+  </div>
+  <div class="nav">
+    <button id="btnPrev">Anterior</button>
+    <button id="btnNext">Siguiente</button>
+  </div>
+</div>
+
+<script>
+const steps = [
+  {
+    title: 'Paso 1 · Entrás al link',
+    body: 'Abrís el link del portal que te pasó secretaría, desde el celular o la compu.',
+    mock: ''
+  },
+  {
+    title: 'Paso 2 · Iniciás sesión',
+    body: 'Usuario: tu DNI. Tecnicatura: la tuya. Contraseña la primera vez: tu DNI también.',
+    mock: `
+      <div class="mock-inner">
+        <div class="field-label">DNI</div>
+        <input value="30990882" readonly>
+        <div class="field-label">Tecnicatura</div>
+        <input value="GYRE" readonly>
+        <div class="field-label">Contraseña</div>
+        <input value="30990882" readonly>
+      </div>`
+  },
+  {
+    title: 'Paso 3 · Elegís tu contraseña',
+    body: 'La primera vez el sistema pide cambiarla por una personal. Mínimo 6 caracteres.',
+    mock: `
+      <div class="mock-inner">
+        <div class="field-label">Contraseña nueva</div>
+        <input placeholder="Mínimo 6 caracteres">
+        <div class="field-label">Repetir</div>
+        <input placeholder="Repetí la contraseña">
+      </div>`
+  },
+  {
+    title: 'Paso 4 · El menú principal',
+    body: 'Desde acá ves tu progreso, novedades, te anotás a cursar o a un final, y pedís constancias.',
+    mock: `
+      <div class="mock-inner grid2">
+        <div class="tile"><div class="tile-icon">📊</div><div class="tile-label">Progreso</div></div>
+        <div class="tile"><div class="tile-icon">✏️</div><div class="tile-label">Cursado</div></div>
+        <div class="tile"><div class="tile-icon">📅</div><div class="tile-label">Finales</div></div>
+        <div class="tile"><div class="tile-icon">📄</div><div class="tile-label">Constancias</div></div>
+      </div>`
+  },
+  {
+    title: 'Paso 5 · Pedir una constancia',
+    body: 'Elegís qué tipo de papel necesitás, completás tus datos, y secretaría te la genera lista.',
+    mock: `
+      <div class="mock-inner">
+        <div class="pill">Alumno regular</div>
+        <div class="pill">Inscripción (ingresantes)</div>
+        <div class="pill">Materias aprobadas</div>
+        <div class="pill">Escolaridad</div>
+        <div class="pill">Examen (por rendir / rendido)</div>
+      </div>`
+  },
+  {
+    title: 'Paso 6 · Anotarte a cursar',
+    body: 'Cuando esté abierta la inscripción, ves las materias que te tocan según lo que ya aprobaste, las tildás y confirmás.',
+    mock: `
+      <div class="mock-inner">
+        <div class="checkrow"><input type="checkbox" checked> Máquinas Eléctricas</div>
+        <div class="checkrow"><input type="checkbox" checked> Gestión de la Calidad</div>
+        <div class="checkrow disabled"><input type="checkbox" disabled> EDI Proyecto y Planificación (no habilitada)</div>
+      </div>`
+  },
+  {
+    title: 'Paso 7 · Ver tu trayectoria',
+    body: 'Un resumen de toda tu carrera: qué aprobaste, qué tenés regularizado y qué te falta para recibirte.',
+    mock: `
+      <div class="mock-inner grid3">
+        <div class="tile"><div class="n">9</div><div class="l">Aprobadas</div></div>
+        <div class="tile"><div class="n">3</div><div class="l">Regularizadas</div></div>
+        <div class="tile"><div class="n">6</div><div class="l">Pendientes</div></div>
+      </div>`
+  },
+  {
+    title: 'Paso 8 · Novedades',
+    body: 'En la pantalla de inicio ves los avisos y fechas importantes: inscripciones, mesas de examen, feriados.',
+    mock: `
+      <div class="mock-inner">
+        <div class="newsrow"><span>Inscripción a materias</span><span>6/8</span></div>
+        <div class="newsrow"><span>Mesa de exámenes</span><span>4/8</span></div>
+      </div>`
+  }
+];
+
+let i = 0;
+const content = document.getElementById('stepContent');
+const dots = document.getElementById('dots');
+const btnPrev = document.getElementById('btnPrev');
+const btnNext = document.getElementById('btnNext');
+
+function render() {
+  const s = steps[i];
+  content.innerHTML = `
+    <p class="step-title">${s.title}</p>
+    <p class="step-body">${s.body}</p>
+    <div class="mock">${s.mock}</div>
+  `;
+  dots.innerHTML = steps.map((_, idx) => `<div class="dot${idx === i ? ' active' : ''}"></div>`).join('');
+  btnPrev.disabled = i === 0;
+  btnNext.textContent = i === steps.length - 1 ? 'Volver al inicio' : 'Siguiente';
+}
+btnPrev.onclick = () => { if (i > 0) { i--; render(); } };
+btnNext.onclick = () => { if (i < steps.length - 1) { i++; render(); } else { i = 0; render(); } };
+render();
+</script>
+</body>
+</html>
