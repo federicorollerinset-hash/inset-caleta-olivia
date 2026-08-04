@@ -2355,6 +2355,7 @@ async function guardarEdicionEstudiante() {
 }
 
 function normalizarDni(v) {
+  if (typeof v === 'number') return String(Math.trunc(v));
   v = String(v == null ? '' : v).trim();
   v = v.replace(/\.0+$/, '');   // Excel a veces guarda el DNI como número: "34075705.0" -> "34075705"
   return v.replace(/[.\s]/g, ''); // saca puntos de miles y espacios ("30.990.882" -> "30990882")
@@ -2382,8 +2383,14 @@ function parsearCSV(texto) {
   return filas.filter(f => f.some(c => c.trim() !== ''));
 }
 
-// Acepta fechas en formato DD/MM/AAAA (lo que exporta Google Forms) o AAAA-MM-DD.
+// Acepta un objeto Date (Excel/SheetJS), o texto en formato DD/MM/AAAA o AAAA-MM-DD.
 function normalizarFechaAISO(v) {
+  if (v instanceof Date && !isNaN(v)) {
+    // Usamos UTC porque SheetJS entrega la fecha en medianoche UTC; con getDate() local
+    // (Argentina, UTC-3) el día podía correrse uno hacia atrás.
+    const y = v.getUTCFullYear(), m = String(v.getUTCMonth() + 1).padStart(2, '0'), d = String(v.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
   v = String(v || '').trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
   const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -2401,7 +2408,7 @@ async function importarCsvFechaNac(file) {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: 'array', cellDates: true });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    filas = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
+    filas = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
   } else {
     const texto = await file.text();
     filas = parsearCSV(texto);
