@@ -1746,8 +1746,8 @@
       </div>
       <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Completá la fecha de cada estudiante y guardá. Los que ya tienen fecha cargada se muestran al final.</p>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('input-csv-fecha-nac').click()">📥 Importar CSV (DNI + fecha de nacimiento)</button>
-        <input type="file" id="input-csv-fecha-nac" accept=".csv" style="display:none;" onchange="importarCsvFechaNac(this.files[0])">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('input-csv-fecha-nac').click()">📥 Importar Excel/CSV (DNI + fecha de nacimiento)</button>
+        <input type="file" id="input-csv-fecha-nac" accept=".csv,.xlsx,.xls" style="display:none;" onchange="importarCsvFechaNac(this.files[0])">
       </div>
       <div id="resultado-import-csv-fn" style="font-size:12px;color:var(--text3);margin-bottom:10px;"></div>
       <input class="search-input" type="text" id="buscar-fecha-nac-masiva" placeholder="Buscar por nombre..." oninput="filtrarFechaNacMasiva()" style="margin-bottom:12px;">
@@ -2355,7 +2355,9 @@ async function guardarEdicionEstudiante() {
 }
 
 function normalizarDni(v) {
-  return String(v || '').replace(/[.\s]/g, '').trim();
+  v = String(v == null ? '' : v).trim();
+  v = v.replace(/\.0+$/, '');   // Excel a veces guarda el DNI como número: "34075705.0" -> "34075705"
+  return v.replace(/[.\s]/g, ''); // saca puntos de miles y espacios ("30.990.882" -> "30990882")
 }
 
 // Parser CSV simple: soporta comas, comillas y CRLF (suficiente para la exportación de Google Sheets).
@@ -2392,15 +2394,25 @@ function normalizarFechaAISO(v) {
 async function importarCsvFechaNac(file) {
   if (!file) return;
   const resEl = document.getElementById('resultado-import-csv-fn');
-  const texto = await file.text();
-  const filas = parsearCSV(texto);
+  const esExcel = /\.(xlsx|xls)$/i.test(file.name);
+
+  let filas;
+  if (esExcel) {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    filas = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
+  } else {
+    const texto = await file.text();
+    filas = parsearCSV(texto);
+  }
   if (filas.length < 2) { resEl.textContent = 'El archivo no tiene filas de datos.'; return; }
 
-  const header = filas[0].map(h => h.toLowerCase().trim());
+  const header = filas[0].map(h => String(h || '').toLowerCase().trim());
   const colDni = header.findIndex(h => h.includes('dni'));
   const colFecha = header.findIndex(h => h.includes('fecha') || h.includes('nacimiento'));
   if (colDni === -1 || colFecha === -1) {
-    resEl.textContent = 'No encontré columnas de DNI y de fecha de nacimiento en el CSV. Revisá los encabezados.';
+    resEl.textContent = 'No encontré columnas de DNI y de fecha de nacimiento en el archivo. Revisá los encabezados.';
     return;
   }
 
