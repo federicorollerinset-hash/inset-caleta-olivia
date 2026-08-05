@@ -1185,10 +1185,9 @@
         <h2>Horarios</h2>
         <p>Horarios de cursada por comisión — 1er cuatrimestre 2026</p>
       </div>
-      <p class="horario-nota">Corresponden al 1er cuatrimestre 2026. Las materias cuatrimestrales cambian en el 2do cuatrimestre.</p>
+      <p class="horario-nota">Corresponden al 2do cuatrimestre 2026. Las materias cuatrimestrales cambian en el 1er cuatrimestre.</p>
       <div class="horario-selector">
-        <button class="horario-sel-btn active" onclick="selectHorario('hor-notec-ac', this)">1° No Técnicos (Com. A/C)</button>
-        <button class="horario-sel-btn" onclick="selectHorario('hor-notec-b', this)">1° No Técnicos (Com. B)</button>
+        <button class="horario-sel-btn active" onclick="selectHorario('hor-notec', this)">1° No Técnicos</button>
         <button class="horario-sel-btn" onclick="selectHorario('hor-tec', this)">1° Técnicos</button>
         <button class="horario-sel-btn" onclick="selectHorario('hor-gre2', this)">GRE — 2° Año</button>
         <button class="horario-sel-btn" onclick="selectHorario('hor-mi2', this)">Mant. Industrial — 2° Año</button>
@@ -3941,49 +3940,46 @@ const HORARIO_PERIODOS = [
 const HORARIO_COLORES = ['hc1','hc2','hc3','hc4','hc5','hc6','hc7'];
 
 const HORARIOS_DATA = {
-  'hor-notec-ac': [
-    {dia:'Martes', ini:2, fin:7, materia:'EDI - Montaje, Operación y Mantenimiento de Instalaciones Eléctricas (Práctica)', docente:''},
-    {dia:'Miércoles', ini:2, fin:5, materia:'Representación Gráfica', docente:'Semino Messina, Daniela Alejandra'},
-    {dia:'Jueves', ini:3, fin:6, materia:'EDI - Montaje, Operación y Mantenimiento de Instalaciones Eléctricas (Teoría)', docente:''},
-    {dia:'Jueves', ini:7, fin:9, materia:'Medición y Análisis de Sistemas Eléctricos', docente:'Miranda, Angel Jonatan'}
-  ],
-  'hor-notec-b': [
-    {dia:'Lunes', ini:2, fin:5, materia:'Representación Gráfica (B)', docente:''},
-    {dia:'Lunes', ini:6, fin:8, materia:'Medición y Análisis de Sistema Eléctricos (B)', docente:'Prieto, Jorge'},
-    {dia:'Martes', ini:2, fin:7, materia:'Montaje, Operación y Mantenimiento de Instalaciones Eléctricas (B)', docente:'Prieto, Jorge'},
-    {dia:'Jueves', ini:3, fin:6, materia:'Montaje, Operación y Mantenimiento de Instalaciones Eléctricas', docente:'Prieto, Jorge'}
+  'hor-notec': [
+    {dia:'Lunes', ini:3, fin:4, materia:'Relaciones Laborales', docente:'Delgado, Roque Gustavo'},
+    {dia:'Lunes', ini:5, fin:8, materia:'EDI - Proyecto y Planificación de Instalaciones Eléctricas', docente:'Prieto, Jorge'},
+    {dia:'Jueves', ini:2, fin:7, materia:'EDI - Proyecto y Planificación de Instalaciones Eléctricas', docente:'Prieto, Jorge'}
   ],
   'hor-tec': [
-    {dia:'Lunes', ini:5, fin:5, materia:'Instrumentación y Control de Procesos', docente:'Acosta, Kevin Nahuel Amin'},
-    {dia:'Lunes', ini:6, fin:9, materia:'Gestión de Calidad, Emprendimiento y Comercialización', docente:''},
+    {dia:'Martes', ini:2, fin:7, materia:'Práctica Profesionalizante Inicial', docente:'Prieto, Jorge'},
+    {dia:'Miércoles', ini:3, fin:5, materia:'Liderazgo, Motivación y Comunicación Efectiva', docente:'Delgado, Roque Gustavo'},
+    {dia:'Miércoles', ini:6, fin:6, materia:'Instrumentación y Control de Procesos', docente:'Acosta, Kevin Nahuel Amin'},
     {dia:'Jueves', ini:3, fin:4, materia:'Dispositivos e Instalaciones Eléctricas', docente:'Velix, Gabriel Augusto'},
     {dia:'Jueves', ini:5, fin:6, materia:'Máquinas Eléctricas', docente:'Miranda, Angel Jonatan'},
     {dia:'Jueves', ini:7, fin:9, materia:'Instrumentación y Control de Procesos', docente:'Acosta, Kevin Nahuel Amin'},
     {dia:'Viernes', ini:3, fin:4, materia:'Dispositivos e Instalaciones Eléctricas', docente:'Velix, Gabriel Augusto'},
-    {dia:'Viernes', ini:5, fin:6, materia:'Máquinas Eléctricas', docente:'Miranda, Angel Jonatan'},
-    {dia:'Viernes', ini:7, fin:9, materia:'Liderazgo, Motivación y Comunicación Efectiva', docente:'Delgado, Roque Gustavo'}
+    {dia:'Viernes', ini:5, fin:6, materia:'Máquinas Eléctricas', docente:'Miranda, Angel Jonatan'}
   ],
   'hor-gre2': [
-    {dia:'Lunes', ini:2, fin:2, materia:'Gestión de la Energía', docente:'Velix, Gabriel Augusto'},
+    {dia:'Lunes', ini:1, fin:2, materia:'Gestión de Calidad', docente:'Velix, Gabriel Augusto'},
     {dia:'Lunes', ini:3, fin:4, materia:'Mantenimiento Industrial', docente:'Acosta, Kevin Nahuel Amin'},
-    {dia:'Lunes', ini:5, fin:7, materia:'Transporte y Distribución en Redes Eléctricas', docente:'Soloaga, Hector Rodolfo'},
-    {dia:'Martes', ini:2, fin:4, materia:'Gestión de la Energía', docente:'Velix, Gabriel Augusto'},
-    {dia:'Martes', ini:5, fin:8, materia:'Centrales Térmicas, Hidráulicas y Eólicas', docente:'Miranda, Angel Jonatan'},
+    {dia:'Lunes', ini:5, fin:7, materia:'Operación de Sistemas de Generación Eléctrica', docente:'Soloaga, Hector Rodolfo'},
+    {dia:'Martes', ini:3, fin:4, materia:'Gestión de la Energía', docente:'Velix, Gabriel Augusto'},
+    {dia:'Martes', ini:5, fin:8, materia:'Operación de Sistemas de Transmisión Eléctrica', docente:'Miranda, Angel Jonatan'},
     {dia:'Miércoles', ini:3, fin:5, materia:'Mantenimiento Industrial', docente:'Acosta, Kevin Nahuel Amin'},
-    {dia:'Miércoles', ini:6, fin:8, materia:'Centrales Térmicas, Hidráulicas y Eólicas', docente:'Miranda, Angel Jonatan'},
-    {dia:'Jueves', ini:2, fin:4, materia:'Prácticas Profesionalizantes Especializadas', docente:'Soloaga, Hector Rodolfo'},
-    {dia:'Jueves', ini:5, fin:8, materia:'Transporte y Distribución en Redes Eléctricas', docente:'Soloaga, Hector Rodolfo'},
-    {dia:'Viernes', ini:3, fin:4, materia:'Inglés Técnico', docente:'Fernandez, Ileana Camila'},
-    {dia:'Viernes', ini:5, fin:8, materia:'Prácticas Profesionalizantes Especializadas', docente:'Soloaga, Hector Rodolfo'}
+    {dia:'Miércoles', ini:6, fin:8, materia:'Operación de Sistemas de Transmisión Eléctrica', docente:'Miranda, Angel Jonatan'},
+    {dia:'Jueves', ini:2, fin:4, materia:'Práctica Profesionalizante Inicial', docente:'Soloaga, Hector Rodolfo'},
+    {dia:'Jueves', ini:5, fin:7, materia:'Operación de Sistemas de Generación Eléctrica', docente:'Soloaga, Hector Rodolfo'},
+    {dia:'Jueves', ini:8, fin:8, materia:'Transporte y Distribución de Redes Eléctricas', docente:'Soloaga, Hector Rodolfo'},
+    {dia:'Viernes', ini:3, fin:4, materia:'Inglés Técnico (Redes)', docente:'Fernandez, Ileana Camila'},
+    {dia:'Viernes', ini:5, fin:8, materia:'Práctica Profesionalizante Inicial', docente:'Soloaga, Hector Rodolfo'}
   ],
   'hor-mi2': [
-    {dia:'Lunes', ini:2, fin:4, materia:'Dispositivos e Instalaciones Mecánicas', docente:'Martino, Sergio Manuel'},
-    {dia:'Lunes', ini:5, fin:9, materia:'Máquinas Térmicas e Hidráulicas', docente:'Miranda, Angel Jonatan'},
-    {dia:'Martes', ini:2, fin:6, materia:'Procesos de Extracción y Tratamiento de Recursos Minerales', docente:'Amado, Rubén Héctor'},
-    {dia:'Miércoles', ini:2, fin:5, materia:'Prácticas Profesionalizantes Especializadas', docente:'Martino, Sergio Manuel'},
-    {dia:'Miércoles', ini:6, fin:7, materia:'Dispositivos e Instalaciones Mecánicas', docente:'Martino, Sergio Manuel'},
-    {dia:'Jueves', ini:2, fin:6, materia:'Mantenimiento Industrial', docente:'Ochoa, Alex Federico'},
-    {dia:'Viernes', ini:2, fin:4, materia:'Prácticas Profesionalizantes Especializadas', docente:'Martino, Sergio Manuel'},
+    {dia:'Lunes', ini:2, fin:4, materia:'Procesos Industriales', docente:'Amado, Rubén Héctor'},
+    {dia:'Lunes', ini:5, fin:8, materia:'Máquinas Térmicas e Hidráulicas', docente:'Miranda, Angel Jonatan'},
+    {dia:'Martes', ini:2, fin:5, materia:'Prácticas Profesionalizantes Especializadas', docente:'Martino, Sergio Manuel'},
+    {dia:'Martes', ini:6, fin:8, materia:'Dispositivos e Instalaciones Mecánicas', docente:'Martino, Sergio Manuel'},
+    {dia:'Miércoles', ini:3, fin:4, materia:'Procesos Industriales de Manufacturación', docente:'Amado, Rubén Héctor'},
+    {dia:'Miércoles', ini:5, fin:5, materia:'Máquinas Térmicas e Hidráulicas', docente:'Miranda, Angel Jonatan'},
+    {dia:'Miércoles', ini:6, fin:8, materia:'Mantenimiento Industrial', docente:'Ochoa, Alex Federico'},
+    {dia:'Jueves', ini:2, fin:4, materia:'Prácticas Profesionalizantes Especializadas', docente:'Martino, Sergio Manuel'},
+    {dia:'Jueves', ini:5, fin:6, materia:'Dispositivos e Instalaciones Mecánicas', docente:'Martino, Sergio Manuel'},
+    {dia:'Viernes', ini:3, fin:4, materia:'Mantenimiento Industrial', docente:'Ochoa, Alex Federico'},
     {dia:'Viernes', ini:5, fin:6, materia:'Inglés Técnico', docente:'Rios, Mariela Verónica'},
     {dia:'Viernes', ini:7, fin:9, materia:'Eficiencia Energética', docente:'Miranda, Angel Jonatan'}
   ]
@@ -4020,7 +4016,7 @@ function selectHorario(dataKey, btn) {
   renderHorario('horarios-contenido', dataKey);
 }
 
-renderHorario('horarios-contenido', 'hor-notec-ac');
+renderHorario('horarios-contenido', 'hor-notec');
 
 cargarDatos();
 
