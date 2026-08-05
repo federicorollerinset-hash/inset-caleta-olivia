@@ -6015,7 +6015,12 @@ async function cargarUsuariosPortal() {
       cont.innerHTML = '<div class="empty"><p>No hay usuarios creados aún.</p></div>';
       return;
     }
-    cont.innerHTML = lista.map(u => {
+    const activos = lista.filter(u => !u.primer_ingreso).length;
+    const resumen = `<div class="card" style="margin-bottom:14px;background:rgba(26,79,138,0.05);border-color:var(--accent);">
+      <div style="font-size:14px;"><strong>${activos}</strong> de <strong>${lista.length}</strong> estudiantes con acceso ya ingresaron al portal
+      <span style="color:var(--text3);">(${lista.length - activos} todavía no)</span></div>
+    </div>`;
+    cont.innerHTML = resumen + lista.map(u => {
       const est = estudiantes.find(e => e.id === u.estudiante_id);
       const nombre  = est ? est.nombre : `ID ${u.estudiante_id}`;
       const carrera = est ? (est.carrera === 'GRE' ? 'GRE — Generación y Redes Eléctricas' : 'MI — Mantenimiento Industrial') : '—';
