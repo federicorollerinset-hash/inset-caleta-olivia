@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inset Caleta Olivia — Trayectorias</title>
+
+<!-- PWA: instalable en el celular -->
+<link rel="manifest" href="/manifest-tecnicaturas.json">
+<meta name="theme-color" content="#0f2444">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="InSET Secretaría">
+<link rel="apple-touch-icon" href="/Icons-tecnicaturas/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/Icons-tecnicaturas/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -6078,6 +6088,12 @@ cargarDatos = async function() {
   await cargarLegajosDB();
 };
 
+// ─── REGISTRO DEL SERVICE WORKER (PWA - instalable en el celular) ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw-tecnicaturas.js').catch(err => console.warn('SW no registrado:', err));
+  });
+}
 </script>
 </body>
 </html>
