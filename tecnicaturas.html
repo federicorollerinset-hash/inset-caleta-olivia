@@ -2335,6 +2335,10 @@ async function guardarEdicionEstudiante() {
 
   mostrarCargando(true);
   try {
+    const estActual = estudiantes.find(e => e.id === id);
+    const dniAnterior = normalizarDni(estActual?.dni || '');
+    const dniNuevo = normalizarDni(dni);
+
     const r = await fetch(`${SB_URL}/rest/v1/estudiantes?id=eq.${id}`, {
       method: 'PATCH',
       headers: SB_H,
@@ -2348,6 +2352,22 @@ async function guardarEdicionEstudiante() {
     renderEstudiantes();
     updateSidebar();
     showToast('Datos actualizados correctamente');
+
+    // Si el DNI cambió, el acceso al portal (usuarios_portal) queda desincronizado:
+    // login busca por dni y la contraseña inicial es el DNI hasheado. Hay que corregirlo ahí también.
+    if (dniNuevo && dniNuevo !== dniAnterior) {
+      const usuarioPortal = await sbGet('usuarios_portal', `estudiante_id=eq.${id}`);
+      if (usuarioPortal.length) {
+        if (confirm(`El DNI cambió (de "${dniAnterior||'(vacío)'}" a "${dniNuevo}").\n\n${nombre} ya tiene acceso al portal. Si no corregís también su usuario, va a seguir sin poder entrar.\n\n¿Actualizar su acceso al portal y restablecer su contraseña al nuevo DNI (${dniNuevo})?`)) {
+          const nuevoHash = await hashPass(dniNuevo);
+          await fetch(`${SB_URL}/rest/v1/usuarios_portal?estudiante_id=eq.${id}`, {
+            method: 'PATCH', headers: SB_H,
+            body: JSON.stringify({ dni: dniNuevo, password_hash: nuevoHash, primer_ingreso: true })
+          });
+          showToast(`✅ Acceso al portal corregido — contraseña nueva: ${dniNuevo}`);
+        }
+      }
+    }
   } catch(e) {
     alert('Error al guardar: ' + e.message);
   }
