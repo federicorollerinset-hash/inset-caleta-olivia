@@ -6,8 +6,8 @@ const CACHE_NAME = 'inset-portal-v1'; // subir el número cada vez que se suba u
 const PRECACHE_URLS = [
   '/portal.html',
   '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/Icons/icon-192.png',
+  '/Icons/icon-512.png'
 ];
 
 // Instalación: precachea el shell básico
