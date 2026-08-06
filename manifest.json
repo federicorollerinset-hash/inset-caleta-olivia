@@ -1,6 +1,7 @@
 {
   "name": "Portal Estudiantil - InSET Caleta Olivia",
   "short_name": "InSET Portal",
+  "id": "/portal.html",
   "description": "Portal de estudiantes del Instituto InSET Caleta Olivia",
   "start_url": "/portal.html",
   "scope": "/",

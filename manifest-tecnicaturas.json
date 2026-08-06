@@ -1,6 +1,7 @@
 {
   "name": "Trayectorias - InSET Caleta Olivia",
   "short_name": "InSET Secretaría",
+  "id": "/tecnicaturas.html",
   "description": "Panel de secretaría / trayectorias del Instituto InSET Caleta Olivia",
   "start_url": "/tecnicaturas.html",
   "scope": "/",

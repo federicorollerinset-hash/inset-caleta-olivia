@@ -6091,7 +6091,7 @@ cargarDatos = async function() {
 // ─── REGISTRO DEL SERVICE WORKER (PWA - instalable en el celular) ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw-tecnicaturas.js').catch(err => console.warn('SW no registrado:', err));
+    navigator.serviceWorker.register('/sw-tecnicaturas.js', { scope: '/tecnicaturas.html' }).catch(err => console.warn('SW no registrado:', err));
   });
 }
 </script>
