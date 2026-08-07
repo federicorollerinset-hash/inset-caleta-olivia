@@ -4484,26 +4484,33 @@ async function cargarInscriptosCursadoAdmin() {
     const insc = await sbGet('inscripciones_cursado', query);
     if (!insc.length) { cont.innerHTML = '<div class="empty"><p>Sin inscripciones.</p></div>'; return; }
 
-    // Agrupar por módulo
+    // Agrupar por módulo + carrera (el número de módulo se repite entre GRE y MI,
+    // pero son materias distintas — agruparlas solo por módulo las mezclaba)
     const porMod = {};
     insc.forEach(i => {
-      if (!porMod[i.mod]) porMod[i.mod] = [];
-      porMod[i.mod].push(i);
+      const key = i.mod + '|' + (i.carrera || '');
+      if (!porMod[key]) porMod[key] = [];
+      porMod[key].push(i);
     });
 
     const nombresMap = {};
     estudiantes.forEach(e => { nombresMap[e.id] = { nombre: e.nombre, carrera: e.carrera }; });
     inscCursadoPorMod = porMod;
 
-    cont.innerHTML = Object.entries(porMod).map(([mod, lista]) => {
-      const nombreMat = getNombreMateria(parseInt(mod), lista[0]?.carrera || 'GRE');
+    const entradas = Object.entries(porMod).map(([key, lista]) => {
+      const [mod, carrera] = key.split('|');
+      const nombreMat = getNombreMateria(parseInt(mod), carrera || 'GRE');
+      return { key, mod, carrera, lista, nombreMat };
+    }).sort((a, b) => a.nombreMat.localeCompare(b.nombreMat, 'es'));
+
+    cont.innerHTML = entradas.map(({ key, mod, carrera, lista, nombreMat }) => {
       return `<div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${lista.length?'10px':'0'}">
-          <div style="font-weight:500;font-size:14px;">Mód. ${mod} — ${nombreMat}</div>
+          <div style="font-weight:500;font-size:14px;">Mód. ${mod} — ${nombreMat} <span class="badge ${carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${carrera}</span></div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span class="badge badge-info">${lista.length} inscripto${lista.length!==1?'s':''}</span>
-            <button class="btn btn-ghost btn-sm" onclick="abrirAgregarAula(${mod},'${nombreMat.replace(/'/g,"\\'")}')">+ Agregar alumno</button>
-            <button class="btn btn-success btn-sm" onclick="abrirModalResultadosCursado(${mod},'${nombreMat.replace(/'/g,"\\'")}')">Cargar resultados</button>
+            <button class="btn btn-ghost btn-sm" onclick="abrirAgregarAula('${key}','${nombreMat.replace(/'/g,"\\'")}')">+ Agregar alumno</button>
+            <button class="btn btn-success btn-sm" onclick="abrirModalResultadosCursado('${key}','${nombreMat.replace(/'/g,"\\'")}')">Cargar resultados</button>
           </div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;">
@@ -4530,14 +4537,14 @@ async function quitarInscripcionAula(inscripcionId, nombre) {
   mostrarCargando(false);
 }
 
-function abrirAgregarAula(mod, nombreMat) {
+function abrirAgregarAula(key, nombreMat) {
   const periodoId = document.getElementById('filtro-cursado-periodo').value;
   if (!periodoId) { alert('Elegí un período puntual en el filtro (no "Todos los períodos") para poder agregar alumnos.'); return; }
   const modal = document.getElementById('modal-agregar-aula');
   document.getElementById('aa-titulo').textContent = 'Agregar a ' + nombreMat;
   document.getElementById('aa-buscar').value = '';
   document.getElementById('aa-resultados').innerHTML = '<p style="font-size:12px;color:var(--text3);">Empezá a escribir para buscar.</p>';
-  modal.dataset.mod = mod;
+  modal.dataset.key = key;
   modal.dataset.periodo = periodoId;
   modal.style.display = 'flex';
   setTimeout(() => document.getElementById('aa-buscar').focus(), 50);
@@ -4545,14 +4552,14 @@ function abrirAgregarAula(mod, nombreMat) {
 
 function filtrarAgregarAula() {
   const modal = document.getElementById('modal-agregar-aula');
-  const mod = parseInt(modal.dataset.mod);
+  const [mod, carrera] = modal.dataset.key.split('|');
   const q = normalizarTexto(document.getElementById('aa-buscar').value);
   const cont = document.getElementById('aa-resultados');
   if (q.length < 2) { cont.innerHTML = '<p style="font-size:12px;color:var(--text3);">Empezá a escribir para buscar.</p>'; return; }
 
-  const yaInscriptos = new Set((inscCursadoPorMod[mod] || []).map(i => i.estudiante_id));
+  const yaInscriptos = new Set((inscCursadoPorMod[modal.dataset.key] || []).map(i => i.estudiante_id));
   const matches = estudiantes.filter(e =>
-    !yaInscriptos.has(e.id) &&
+    !yaInscriptos.has(e.id) && e.carrera === carrera &&
     (normalizarTexto(e.nombre).includes(q) || String(e.dni || '').includes(q))
   ).slice(0, 20);
 
@@ -4567,13 +4574,13 @@ function filtrarAgregarAula() {
 
 async function confirmarAgregarAula(estudianteId) {
   const modal = document.getElementById('modal-agregar-aula');
-  const mod = parseInt(modal.dataset.mod);
+  const [mod] = modal.dataset.key.split('|');
   const periodoId = modal.dataset.periodo;
   const est = estudiantes.find(e => e.id === estudianteId);
   if (!est) return;
   mostrarCargando(true);
   try {
-    await sbPost('inscripciones_cursado', { estudiante_id: estudianteId, mod, periodo_id: periodoId, carrera: est.carrera });
+    await sbPost('inscripciones_cursado', { estudiante_id: estudianteId, mod: parseInt(mod), periodo_id: periodoId, carrera: est.carrera });
     showToast(`${est.nombre} agregado/a`);
     modal.style.display = 'none';
     cargarInscriptosCursadoAdmin();
@@ -5030,9 +5037,10 @@ const GENERADORES_CONSTANCIA = {
 };
 
 // ─── CARGAR RESULTADOS DE CURSADO (masivo) ─────────────────────
-async function abrirModalResultadosCursado(mod, nombreMat) {
-  const lista = inscCursadoPorMod[mod] || [];
+async function abrirModalResultadosCursado(key, nombreMat) {
+  const lista = inscCursadoPorMod[key] || [];
   if (!lista.length) { alert('No hay inscriptos para esta materia.'); return; }
+  const mod = parseInt(key.split('|')[0]);
 
   const alumnos = lista
     .map(i => { const e = estudiantes.find(x=>x.id===i.estudiante_id); return e ? { ...e, periodoId: i.periodo_id } : null; })
@@ -5101,6 +5109,7 @@ async function abrirModalResultadosCursado(mod, nombreMat) {
   document.getElementById('rc-fecha').value = new Date().toISOString().slice(0,10);
   document.getElementById('rc-cuatrimestre').value = cuatriSugerido;
   modal.dataset.mod = mod;
+  modal.dataset.key = key;
   modal.style.display = 'flex';
 }
 
