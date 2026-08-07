@@ -894,8 +894,16 @@ async function doLogin() {
 
   setLoading(true);
   try {
-    // Buscar usuario por DNI en usuarios_portal
-    const usuarios = await sbGet('usuarios_portal', `dni=eq.${dni}`);
+    // Buscar primero el estudiante por DNI + tecnicatura elegida (una persona puede
+    // tener un registro por cada carrera, cada uno con su propia cuenta de portal)
+    const estArr = await sbGet('estudiantes', `dni=eq.${dni}&carrera=eq.${carrera}`);
+    if (!estArr.length) {
+      errEl.textContent = 'El DNI no corresponde a esa tecnicatura.';
+      errEl.style.display = 'flex'; setLoading(false); return;
+    }
+
+    // Buscar la cuenta de portal asociada a ESE estudiante puntual
+    const usuarios = await sbGet('usuarios_portal', `estudiante_id=eq.${estArr[0].id}`);
     if (!usuarios.length) {
       errEl.textContent = 'DNI no encontrado. Contactá a secretaría.';
       errEl.style.display = 'flex'; setLoading(false); return;
@@ -906,13 +914,6 @@ async function doLogin() {
     const usuario = usuarios.find(u => u.password_hash === hash);
     if (!usuario) {
       errEl.textContent = 'Contraseña incorrecta.';
-      errEl.style.display = 'flex'; setLoading(false); return;
-    }
-
-    // Cargar estudiante y verificar carrera
-    const estArr = await sbGet('estudiantes', `id=eq.${usuario.estudiante_id}&carrera=eq.${carrera}`);
-    if (!estArr.length) {
-      errEl.textContent = 'El DNI no corresponde a esa tecnicatura.';
       errEl.style.display = 'flex'; setLoading(false); return;
     }
 
