@@ -2164,6 +2164,8 @@ async function sbUpsert(tabla, data, onConflict='estudiante_id,mod') {
 let estudiantes = [];
 let registros   = [];
 let inscCursadoPorMod = {}; // último resultado de cargarInscriptosCursadoAdmin, agrupado por mod
+let aulasGruposAbiertos = new Set(); // ids de grupos (No Técnicos / Técnicos / GRE / MI) expandidos
+let aulasMateriasAbiertas = new Set(); // keys de aulas individuales expandidas
 let ultimasSolicitudesAdmin = []; // último resultado de cargarSolicitudesAdmin (para generar constancias)
 let modoEdicion = null; // {estudianteId, mod} cuando se está editando
 
@@ -4502,37 +4504,95 @@ async function cargarInscriptosCursadoAdmin() {
       const [modStr, carrera] = key.split('|');
       const mod = parseInt(modStr);
       const nombreMat = getNombreMateria(mod, carrera || 'GRE');
-      const listaOrdenada = [...lista].sort((a, b) => {
-        const na = nombresMap[a.estudiante_id]?.nombre || '';
-        const nb = nombresMap[b.estudiante_id]?.nombre || '';
-        return na.localeCompare(nb, 'es');
-      });
+      const listaOrdenada = lista.map(i => ({
+        id: i.id,
+        estudiante_id: i.estudiante_id,
+        nombre: nombresMap[i.estudiante_id]?.nombre || '(alumno no encontrado)',
+        carreraEst: nombresMap[i.estudiante_id]?.carrera || ''
+      })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
       return { key, mod, carrera: carrera || '', lista: listaOrdenada, nombreMat };
     }).sort((a, b) => a.mod - b.mod || a.carrera.localeCompare(b.carrera, 'es'));
 
-    cont.innerHTML = entradas.map(({ key, mod, carrera, lista, nombreMat }) => {
-      return `<div class="card" style="margin-bottom:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${lista.length?'10px':'0'}">
-          <div style="font-weight:500;font-size:14px;">Mód. ${mod} — ${nombreMat}${carrera ? ` <span class="badge ${carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${carrera}</span>` : ''}</div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span class="badge badge-info">${lista.length} inscripto${lista.length!==1?'s':''}</span>
-            <button class="btn btn-ghost btn-sm" onclick="abrirAgregarAula('${key}','${nombreMat.replace(/'/g,"\\'")}')">+ Agregar alumno</button>
-            <button class="btn btn-success btn-sm" onclick="abrirModalResultadosCursado('${key}','${nombreMat.replace(/'/g,"\\'")}')">Cargar resultados</button>
+    // Mód. 6-10 (EDI, Medición, Repr. Gráfica, Relaciones Laborales, EDI Proyecto) son
+    // las que cursan los "No técnicos" — a los técnicos les dan equivalencia automática.
+    // El resto de 1° año (1-5 y 11) lo carga el técnico primero (Práctica Inicial, y
+    // luego las anuales), aunque con el tiempo se sumen ahí los no técnicos también.
+    const MODS_NO_TECNICOS = [6, 7, 8, 9, 10];
+    const grupos = [
+      { id: 'notec', label: '1° Año — No Técnicos',       test: e => e.mod <= 11 && MODS_NO_TECNICOS.includes(e.mod) },
+      { id: 'tec',   label: '1° Año — Técnicos',           test: e => e.mod <= 11 && !MODS_NO_TECNICOS.includes(e.mod) },
+      { id: 'gre2',  label: '2° Año — GRE',                test: e => e.mod > 11 && e.carrera === 'GRE' },
+      { id: 'mi2',   label: '2° Año — Mant. Industrial',   test: e => e.mod > 11 && e.carrera === 'MI' },
+    ];
+
+    const html = grupos.map(g => {
+      const items = entradas.filter(g.test);
+      if (!items.length) return '';
+      const abierto = aulasGruposAbiertos.has(g.id);
+      const totalInsc = items.reduce((s, e) => s + e.lista.length, 0);
+      return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden;">
+        <div onclick="toggleGrupoAula('${g.id}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;">
+          <div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;">
+            <span id="grupo-aula-icon-${g.id}">${abierto ? '▾' : '▸'}</span> ${g.label}
+          </div>
+          <div style="display:flex;gap:8px;">
+            <span class="badge badge-neutral">${items.length} aula${items.length !== 1 ? 's' : ''}</span>
+            <span class="badge badge-info">${totalInsc} inscripto${totalInsc !== 1 ? 's' : ''}</span>
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          ${lista.map(i => {
-            const est = nombresMap[i.estudiante_id];
-            if (!est) return '';
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;font-size:12px;">
-              <span>${est.nombre} <span class="badge ${est.carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${est.carrera}</span></span>
-              <span onclick="quitarInscripcionAula('${i.id}','${est.nombre.replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 4px;" title="Quitar">×</span>
-            </div>`;
-          }).join('')}
+        <div id="grupo-aula-body-${g.id}" style="display:${abierto ? 'block' : 'none'};padding:0 14px 14px;">
+          ${items.map(renderAulaBoton).join('')}
         </div>
       </div>`;
     }).join('');
+
+    cont.innerHTML = html || '<div class="empty"><p>Sin inscripciones.</p></div>';
   } catch(e) { cont.innerHTML = `<div class="empty"><p>Error: ${e.message}</p></div>`; }
+}
+
+function cssKeyAula(key) { return key.replace(/[^a-zA-Z0-9]/g, '_'); }
+
+function toggleGrupoAula(id) {
+  if (aulasGruposAbiertos.has(id)) aulasGruposAbiertos.delete(id); else aulasGruposAbiertos.add(id);
+  const body = document.getElementById('grupo-aula-body-' + id);
+  const icon = document.getElementById('grupo-aula-icon-' + id);
+  if (body) body.style.display = aulasGruposAbiertos.has(id) ? 'block' : 'none';
+  if (icon) icon.textContent = aulasGruposAbiertos.has(id) ? '▾' : '▸';
+}
+
+function toggleMateriaAula(key) {
+  if (aulasMateriasAbiertas.has(key)) aulasMateriasAbiertas.delete(key); else aulasMateriasAbiertas.add(key);
+  const ck = cssKeyAula(key);
+  const body = document.getElementById('materia-aula-body-' + ck);
+  const icon = document.getElementById('materia-aula-icon-' + ck);
+  if (body) body.style.display = aulasMateriasAbiertas.has(key) ? 'block' : 'none';
+  if (icon) icon.textContent = aulasMateriasAbiertas.has(key) ? '▾' : '▸';
+}
+
+function renderAulaBoton({ key, mod, carrera, lista, nombreMat }) {
+  const ck = cssKeyAula(key);
+  const abierta = aulasMateriasAbiertas.has(key);
+  return `<div style="border:1px solid var(--border);border-radius:7px;margin-top:8px;overflow:hidden;">
+    <div onclick="toggleMateriaAula('${key}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg3);">
+      <div style="font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;">
+        <span id="materia-aula-icon-${ck}">${abierta ? '▾' : '▸'}</span>
+        Mód. ${mod} — ${nombreMat}${carrera ? ` <span class="badge ${carrera === 'GRE' ? 'badge-info' : 'badge-warning'}" style="font-size:9px;padding:1px 5px;">${carrera}</span>` : ''}
+      </div>
+      <span class="badge badge-info">${lista.length} inscripto${lista.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div id="materia-aula-body-${ck}" style="display:${abierta ? 'block' : 'none'};padding:10px 12px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${lista.length ? '8px' : '0'};">
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();abrirAgregarAula('${key}','${nombreMat.replace(/'/g,"\\'")}')">+ Agregar alumno</button>
+        <button class="btn btn-success btn-sm" onclick="event.stopPropagation();abrirModalResultadosCursado('${key}','${nombreMat.replace(/'/g,"\\'")}')">Cargar resultados</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        ${lista.map(est => `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;font-size:12px;">
+          <span>${est.nombre} <span class="badge ${est.carreraEst === 'GRE' ? 'badge-info' : 'badge-warning'}" style="font-size:9px;padding:1px 5px;">${est.carreraEst}</span></span>
+          <span onclick="quitarInscripcionAula('${est.id}','${est.nombre.replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 4px;" title="Quitar">×</span>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
 }
 
 // ─── AULAS: agregar/quitar inscriptos a mano ────────────────────
