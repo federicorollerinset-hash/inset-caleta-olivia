@@ -4484,11 +4484,12 @@ async function cargarInscriptosCursadoAdmin() {
     const insc = await sbGet('inscripciones_cursado', query);
     if (!insc.length) { cont.innerHTML = '<div class="empty"><p>Sin inscripciones.</p></div>'; return; }
 
-    // Agrupar por módulo + carrera (el número de módulo se repite entre GRE y MI,
-    // pero son materias distintas — agruparlas solo por módulo las mezclaba)
+    // Agrupar: en 1° año (mod ≤ 11) la materia es la misma para GRE y MI, así que
+    // se agrupan juntas; en 2° año (mod ≥ 12) el número se repite pero son materias
+    // distintas según la carrera, así que ahí sí van separadas.
     const porMod = {};
     insc.forEach(i => {
-      const key = i.mod + '|' + (i.carrera || '');
+      const key = i.mod <= 11 ? String(i.mod) : (i.mod + '|' + (i.carrera || ''));
       if (!porMod[key]) porMod[key] = [];
       porMod[key].push(i);
     });
@@ -4498,26 +4499,35 @@ async function cargarInscriptosCursadoAdmin() {
     inscCursadoPorMod = porMod;
 
     const entradas = Object.entries(porMod).map(([key, lista]) => {
-      const [mod, carrera] = key.split('|');
-      const nombreMat = getNombreMateria(parseInt(mod), carrera || 'GRE');
-      return { key, mod, carrera, lista, nombreMat };
-    }).sort((a, b) => a.nombreMat.localeCompare(b.nombreMat, 'es'));
+      const [modStr, carrera] = key.split('|');
+      const mod = parseInt(modStr);
+      const nombreMat = getNombreMateria(mod, carrera || 'GRE');
+      const listaOrdenada = [...lista].sort((a, b) => {
+        const na = nombresMap[a.estudiante_id]?.nombre || '';
+        const nb = nombresMap[b.estudiante_id]?.nombre || '';
+        return na.localeCompare(nb, 'es');
+      });
+      return { key, mod, carrera: carrera || '', lista: listaOrdenada, nombreMat };
+    }).sort((a, b) => a.mod - b.mod || a.carrera.localeCompare(b.carrera, 'es'));
 
     cont.innerHTML = entradas.map(({ key, mod, carrera, lista, nombreMat }) => {
       return `<div class="card" style="margin-bottom:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:${lista.length?'10px':'0'}">
-          <div style="font-weight:500;font-size:14px;">Mód. ${mod} — ${nombreMat} <span class="badge ${carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${carrera}</span></div>
+          <div style="font-weight:500;font-size:14px;">Mód. ${mod} — ${nombreMat}${carrera ? ` <span class="badge ${carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${carrera}</span>` : ''}</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span class="badge badge-info">${lista.length} inscripto${lista.length!==1?'s':''}</span>
             <button class="btn btn-ghost btn-sm" onclick="abrirAgregarAula('${key}','${nombreMat.replace(/'/g,"\\'")}')">+ Agregar alumno</button>
             <button class="btn btn-success btn-sm" onclick="abrirModalResultadosCursado('${key}','${nombreMat.replace(/'/g,"\\'")}')">Cargar resultados</button>
           </div>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
           ${lista.map(i => {
             const est = nombresMap[i.estudiante_id];
             if (!est) return '';
-            return `<span style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:3px 6px 3px 10px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">${est.nombre} <span class="badge ${est.carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${est.carrera}</span><span onclick="quitarInscripcionAula('${i.id}','${est.nombre.replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 2px;" title="Quitar">×</span></span>`;
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;font-size:12px;">
+              <span>${est.nombre} <span class="badge ${est.carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${est.carrera}</span></span>
+              <span onclick="quitarInscripcionAula('${i.id}','${est.nombre.replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 4px;" title="Quitar">×</span>
+            </div>`;
           }).join('')}
         </div>
       </div>`;
@@ -4559,7 +4569,7 @@ function filtrarAgregarAula() {
 
   const yaInscriptos = new Set((inscCursadoPorMod[modal.dataset.key] || []).map(i => i.estudiante_id));
   const matches = estudiantes.filter(e =>
-    !yaInscriptos.has(e.id) && e.carrera === carrera &&
+    !yaInscriptos.has(e.id) && (!carrera || e.carrera === carrera) &&
     (normalizarTexto(e.nombre).includes(q) || String(e.dni || '').includes(q))
   ).slice(0, 20);
 

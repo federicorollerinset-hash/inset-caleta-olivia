@@ -414,6 +414,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
           <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('todos',this)">Todas</button>
           <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('aprobada',this)">Aprobadas</button>
           <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('regular',this)">Regulares</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="filtrarHist('cursando',this)">Cursando</button>
         </div>
         <div id="hist-lista"></div>
       </div>
@@ -819,10 +820,12 @@ async function restaurarSesion() {
     if (!estArr.length) { borrarSesionLocal(); setLoading(false); return false; }
 
     const registrosRaw = await sbGet('registros', `estudiante_id=eq.${estArr[0].id}`);
+    const cursandoRaw = await sbGet('inscripciones_cursado', `estudiante_id=eq.${estArr[0].id}&estado=eq.inscripto`);
     sesion = {
       usuario: usuarios[0],
       estudiante: estArr[0],
-      registros: registrosRaw.map(r => ({...r, estudianteId: r.estudiante_id}))
+      registros: registrosRaw.map(r => ({...r, estudianteId: r.estudiante_id})),
+      cursando: cursandoRaw.map(i => i.mod)
     };
     guardarSesionLocal();
     setLoading(false);
@@ -918,10 +921,12 @@ async function doLogin() {
     }
 
     const registrosRaw = await sbGet('registros', `estudiante_id=eq.${estArr[0].id}`);
+    const cursandoRaw = await sbGet('inscripciones_cursado', `estudiante_id=eq.${estArr[0].id}&estado=eq.inscripto`);
     sesion = {
       usuario,
       estudiante: estArr[0],
-      registros: registrosRaw.map(r => ({...r, estudianteId: r.estudiante_id}))
+      registros: registrosRaw.map(r => ({...r, estudianteId: r.estudiante_id})),
+      cursando: cursandoRaw.map(i => i.mod)
     };
     guardarSesionLocal();
 
@@ -1259,6 +1264,7 @@ function renderTrayectoria() {
     if (s.aprobadas.includes(m.mod)) return {label:'Final aprobado',cls:'badge-success'};
     if (s.habilitadas.some(h=>h.mod===m.mod)) return {label:'Puede rendir',cls:'badge-warning'};
     if (s.regulares.includes(m.mod)) return {label:'Regular',cls:'badge-info'};
+    if ((sesion.cursando||[]).includes(m.mod)) return {label:'Cursando',cls:'badge-warning'};
     return {label:'Sin cursar',cls:'badge-neutral'};
   }
 
@@ -1410,6 +1416,9 @@ function renderHistorial() {
         else if (meses<=6){vc='background:rgba(176,106,10,0.1);color:var(--warning)';vi='🕐';}
         vencHtml=`<span style="font-size:11px;padding:3px 9px;border-radius:20px;white-space:nowrap;${vc}">${vi} Vence ${vStr}</span>`;
       }
+    } else if ((sesion.cursando||[]).includes(m.mod)) {
+      estado='Cursando'; badgeCls='badge-warning';
+      detalle='Inscripto/a a cursado este cuatrimestre';
     }
     return {m, estado, badgeCls, detalle, vencHtml, esEquiv};
   });
@@ -1432,6 +1441,7 @@ function renderHistorial() {
   function doRender() {
     const filtrados = histFiltro==='todos' ? items
       : histFiltro==='aprobada' ? items.filter(i=>i.estado==='Final aprobado'||i.estado==='Equivalencia')
+      : histFiltro==='cursando' ? items.filter(i=>i.estado==='Cursando')
       : items.filter(i=>i.estado==='Regular');
     const comun = filtrados.filter(i=>PLAN_COMUN.find(x=>x.mod===i.m.mod));
     const segundo = filtrados.filter(i=>!PLAN_COMUN.find(x=>x.mod===i.m.mod));
