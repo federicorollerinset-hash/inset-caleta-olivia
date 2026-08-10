@@ -1721,6 +1721,7 @@
           <div class="form-grid">
             <div class="form-group">
               <label>Estudiante *</label>
+              <input type="text" id="usr-est-buscar" placeholder="Buscar por nombre..." style="margin-bottom:6px;" oninput="poblarSelectUsuarios(this.value)">
               <select id="usr-est-sel">
                 <option value="">— Seleccioná estudiante —</option>
               </select>
@@ -1743,6 +1744,7 @@
         </div>
       </div>
       <div id="tab-usr-lista" style="display:none;">
+        <input type="text" id="usr-lista-buscar" placeholder="Buscar por nombre..." style="margin-bottom:12px;width:100%;max-width:320px;" oninput="cargarUsuariosPortal(this.value)">
         <div id="usuarios-portal-lista"><div class="empty"><p>Cargando...</p></div></div>
       </div>
     </div>
@@ -6321,13 +6323,19 @@ async function hashPass(pass) {
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-async function poblarSelectUsuarios() {
+async function poblarSelectUsuarios(busqueda) {
   const existentes = await sbGet('usuarios_portal', 'select=estudiante_id');
   const idsConAcceso = new Set(existentes.map(u => u.estudiante_id));
 
   const sel = document.getElementById('usr-est-sel');
   if (!sel) return;
-  const sorted = [...estudiantes].sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
+  const q = (busqueda !== undefined ? busqueda : (document.getElementById('usr-est-buscar')?.value || ''))
+    .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const activos = estudiantes.filter(e => (e.estado_est || 'activo') !== 'inactivo');
+  const filtrados = q
+    ? activos.filter(e => e.nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(q))
+    : activos;
+  const sorted = filtrados.sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
   sel.innerHTML = '<option value="">— Seleccioná estudiante —</option>' +
     sorted.map(e=>{
       const carreraLabel = e.carrera === 'GRE' ? 'GRE' : 'MI';
@@ -6414,14 +6422,28 @@ async function generarTodosLosUsuarios() {
   await poblarSelectUsuarios();
 }
 
-async function cargarUsuariosPortal() {
+async function cargarUsuariosPortal(busqueda) {
   const cont = document.getElementById('usuarios-portal-lista');
   if (!cont) return;
   cont.innerHTML = '<div class="empty"><p>Cargando...</p></div>';
   try {
-    const lista = await sbGet('usuarios_portal', 'select=*&order=estudiante_id');
+    let lista = await sbGet('usuarios_portal', 'select=*&order=estudiante_id');
+    // Ocultar accesos de estudiantes inactivos
+    lista = lista.filter(u => {
+      const est = estudiantes.find(e => e.id === u.estudiante_id);
+      return (est?.estado_est || 'activo') !== 'inactivo';
+    });
+    const q = (busqueda !== undefined ? busqueda : (document.getElementById('usr-lista-buscar')?.value || ''))
+      .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if (q) {
+      lista = lista.filter(u => {
+        const est = estudiantes.find(e => e.id === u.estudiante_id);
+        const nombre = est ? est.nombre : '';
+        return nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(q);
+      });
+    }
     if (!lista.length) {
-      cont.innerHTML = '<div class="empty"><p>No hay usuarios creados aún.</p></div>';
+      cont.innerHTML = '<div class="empty"><p>No hay usuarios para mostrar.</p></div>';
       return;
     }
     const activos = lista.filter(u => !u.primer_ingreso).length;
