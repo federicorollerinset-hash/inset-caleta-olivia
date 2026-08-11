@@ -2369,11 +2369,9 @@ function renderEstudiantes() {
     const cursandoMods = inscripcionesCursado
       .filter(i => i.estudianteId === e.id && !registros.some(r => r.estudianteId === e.id && r.mod === i.mod))
       .map(i => i.mod);
-    const cursandoHtml = cursandoMods.length
-      ? `<div style="margin-top:8px;font-size:11px;color:var(--text3);">
-          <span style="color:var(--accent);font-weight:600;">Cursando:</span>
-          ${[...new Set(cursandoMods)].map(m => `<span class="badge badge-info" style="margin:2px 4px 0 0;display:inline-block;">${getNombreMateria(m, e.carrera)}</span>`).join('')}
-        </div>`
+    const cursandoCount = new Set(cursandoMods).size;
+    const cursandoHtml = cursandoCount
+      ? `<div style="margin-top:8px;font-size:12px;color:var(--accent);font-weight:600;">Cursando ${cursandoCount} ${cursandoCount === 1 ? 'materia' : 'materias'}</div>`
       : '';
     return `<div class="${cardCls}" style="position:relative;">
       ${estTagHtml}
