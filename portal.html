@@ -726,9 +726,8 @@ async function enviarNotificacion(tipo, detalle) {
   }
 }
 
-async function guardarSolicitud(tipo, detalle) {
+async function guardarSolicitud(tipo, detalle, notificar = true) {
   // Solo guarda en solicitudes_portal si NO es una constancia (que ya va a la tabla constancias)
-  // y siempre manda el mail por Formspree
   if (!tipo.startsWith('Constancia') && tipo !== 'Constancia de escolaridad') {
     try {
       await sbPost('solicitudes_portal', {
@@ -739,7 +738,8 @@ async function guardarSolicitud(tipo, detalle) {
       });
     } catch(e) { console.warn('No se pudo guardar solicitud en Supabase:', e.message); }
   }
-  await enviarNotificacion(tipo, detalle);
+  // Formspree solo para constancias y reseteo de clave (las inscripciones liquidaban el cupo mensual)
+  if (notificar) await enviarNotificacion(tipo, detalle);
 }
 
 
@@ -1674,9 +1674,10 @@ async function inscribirseMesa(mesaId, btn) {
     const mat = calcStats().habilitadas.find(m => m.mod == mesa[0].mod);
     await guardarSolicitud(
       'Inscripción a mesa de examen',
-      `Materia: ${mat?.nombre || 'Módulo '+mesa[0].mod} · ${mesa[0].periodo||''} · ${mesa[0].llamado||''}° llamado`
+      `Materia: ${mat?.nombre || 'Módulo '+mesa[0].mod} · ${mesa[0].periodo||''} · ${mesa[0].llamado||''}° llamado`,
+      false
     );
-    showToast('Inscripción confirmada ✓ — Secretaría fue notificada');
+    showToast('Inscripción confirmada ✓');
     renderMesa();
   } catch(e) { alert('Error: '+e.message); btn.disabled = false; }
 }
@@ -1826,10 +1827,11 @@ async function confirmarCursado(periodoId, carrera, btn) {
     const nombres = mods.map(mod => plan.find(m => m.mod === mod)?.nombre || 'Módulo '+mod);
     await guardarSolicitud(
       'Inscripción a cursado',
-      `Materias: ${nombres.join(', ')}`
+      `Materias: ${nombres.join(', ')}`,
+      false
     );
 
-    showToast(`Inscripción confirmada ✓ (${mods.length} materia${mods.length>1?'s':''}) — Secretaría fue notificada`);
+    showToast(`Inscripción confirmada ✓ (${mods.length} materia${mods.length>1?'s':''})`);
     renderCursado();
   } catch(e) { alert('Error: '+e.message); btn.disabled = false; }
 }
