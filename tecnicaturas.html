@@ -895,6 +895,7 @@
       <div class="tabs group-nav">
         <button class="tab group-nav-tab" data-view="cursado" onclick="showView('cursado')">Inscripción a cursado</button>
         <button class="tab group-nav-tab active" data-view="mesas" onclick="showView('mesas')">Inscripción a mesas</button>
+        <button class="tab group-nav-tab" data-view="extraordinarias" onclick="showView('extraordinarias')">Mesa extraordinaria</button>
       </div>
 
       <div class="tabs">
@@ -1052,6 +1053,40 @@
 
 
     <!-- INSCRIPCIÓN A CURSADO -->
+    <div id="view-extraordinarias" class="view">
+      <div class="breadcrumb">inicio / mesa extraordinaria</div>
+      <div class="page-header">
+        <h2>Mesa extraordinaria</h2>
+        <p>Llamados a demanda (abril y septiembre) — ventana de inscripción y solicitudes recibidas</p>
+      </div>
+      <div class="tabs group-nav">
+        <button class="tab group-nav-tab" data-view="cursado" onclick="showView('cursado')">Inscripción a cursado</button>
+        <button class="tab group-nav-tab" data-view="mesas" onclick="showView('mesas')">Inscripción a mesas</button>
+        <button class="tab group-nav-tab active" data-view="extraordinarias" onclick="showView('extraordinarias')">Mesa extraordinaria</button>
+      </div>
+
+      <div class="card" style="margin-top:16px;max-width:480px;">
+        <div class="card-title">Ventana de inscripción</div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="extra-estado-actual">Cargando...</p>
+        <div style="display:flex;gap:10px;">
+          <div class="form-group" style="flex:1;margin-bottom:0;">
+            <label>Apertura</label>
+            <input type="date" id="extra-apertura">
+          </div>
+          <div class="form-group" style="flex:1;margin-bottom:0;">
+            <label>Cierre</label>
+            <input type="date" id="extra-cierre">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="guardarConfigExtraordinaria()">Guardar y habilitar</button>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <div class="card-title">Solicitudes recibidas, por materia</div>
+        <div id="extra-solicitudes-content"><p style="color:var(--text3);font-size:13px;">Cargando...</p></div>
+      </div>
+    </div>
+
     <div id="view-cursado" class="view">
       <div class="breadcrumb">inicio / inscripción a cursado</div>
       <div class="page-header">
@@ -1061,6 +1096,7 @@
       <div class="tabs group-nav">
         <button class="tab group-nav-tab active" data-view="cursado" onclick="showView('cursado')">Inscripción a cursado</button>
         <button class="tab group-nav-tab" data-view="mesas" onclick="showView('mesas')">Inscripción a mesas</button>
+        <button class="tab group-nav-tab" data-view="extraordinarias" onclick="showView('extraordinarias')">Mesa extraordinaria</button>
       </div>
 
       <div class="tabs">
@@ -2003,6 +2039,134 @@ async function generarActaVolante(mesaId, nombreMat, mod, fecha) {
   }
 }
 
+
+// ─── MESA EXTRAORDINARIA (admin) ───────────────────────────────
+async function sbPatchExtra(tabla, filtro, data) {
+  const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${filtro}`, { method:'PATCH', headers: SB_H, body: JSON.stringify(data) });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function cargarExtraordinariasAdmin() {
+  // Ventana actual
+  const estadoEl = document.getElementById('extra-estado-actual');
+  try {
+    const activos = await sbGet('llamados_extraordinarios', 'activo=eq.true&order=creado_en.desc&limit=1');
+    const l = activos[0];
+    if (l) {
+      document.getElementById('extra-apertura').value = l.apertura;
+      document.getElementById('extra-cierre').value = l.cierre;
+      const hoy = new Date().toISOString().slice(0,10);
+      const abierto = l.apertura <= hoy && hoy <= l.cierre;
+      estadoEl.textContent = abierto
+        ? `Ventana activa: ${l.apertura} al ${l.cierre} (los estudiantes ya pueden inscribirse).`
+        : `Ventana cargada: ${l.apertura} al ${l.cierre} (fuera de rango, no visible para estudiantes todavía).`;
+    } else {
+      estadoEl.textContent = 'Todavía no cargaste ninguna ventana de inscripción.';
+    }
+  } catch(e) {
+    estadoEl.textContent = 'Error al cargar la ventana: ' + e.message;
+  }
+
+  // Solicitudes agrupadas por materia
+  const cont = document.getElementById('extra-solicitudes-content');
+  cont.innerHTML = '<p style="color:var(--text3);font-size:13px;">Cargando...</p>';
+  try {
+    const filas = await sbGet('inscripciones_extraordinarias', 'order=materia_nombre.asc');
+    if (!filas.length) {
+      cont.innerHTML = '<p style="color:var(--text3);font-size:13px;">Todavía no hay solicitudes.</p>';
+      return;
+    }
+    const porMateria = {};
+    filas.forEach(f => {
+      const key = f.mod + '|' + f.materia_nombre;
+      if (!porMateria[key]) porMateria[key] = { mod: f.mod, nombre: f.materia_nombre, anio: f.anio_label, alumnos: [] };
+      porMateria[key].alumnos.push(f);
+    });
+    cont.innerHTML = Object.values(porMateria).map(g => `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:500;font-size:14px;">${g.nombre}</div>
+            <div style="font-size:11px;color:var(--text3);">${g.anio} año · ${g.alumnos.length} inscripto${g.alumnos.length===1?'':'s'}</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="generarActaExtraordinaria(${g.mod}, '${g.nombre.replace(/'/g,"\\'")}')">Generar acta</button>
+        </div>
+        <div style="margin-top:8px;">
+          ${g.alumnos.map(a => `<div style="font-size:12px;color:var(--text2);padding:3px 0;border-top:1px solid var(--border);">${a.nombre} · ${a.dni||'—'} · ${a.carrera}</div>`).join('')}
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    cont.innerHTML = `<div class="alert alert-danger">Error al cargar solicitudes: ${e.message}</div>`;
+  }
+}
+
+async function guardarConfigExtraordinaria() {
+  const apertura = document.getElementById('extra-apertura').value;
+  const cierre = document.getElementById('extra-cierre').value;
+  if (!apertura || !cierre) { alert('Completá apertura y cierre.'); return; }
+  if (cierre < apertura) { alert('El cierre no puede ser anterior a la apertura.'); return; }
+  try {
+    // Desactiva ventanas previas y crea la nueva activa
+    await sbPatchExtra('llamados_extraordinarios', 'activo=eq.true', { activo: false });
+    await sbPost('llamados_extraordinarios', { apertura, cierre, activo: true });
+    showToast ? showToast('Ventana guardada ✓') : alert('Ventana guardada.');
+    cargarExtraordinariasAdmin();
+  } catch(e) {
+    alert('Error al guardar: ' + e.message);
+  }
+}
+
+function pedirFechaActaExtra() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;';
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:10px;padding:22px;max-width:320px;width:90%;color:#111;">
+        <div style="font-weight:700;font-size:16px;margin-bottom:14px;">Generar acta extraordinaria</div>
+        <div style="font-size:13px;margin-bottom:6px;">Fecha de la mesa (Libro/Folio/tribunal quedan en blanco para completar a mano, como en las actas normales):</div>
+        <input type="date" id="input-fecha-acta-extra" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;margin-bottom:18px;box-sizing:border-box;">
+        <div style="text-align:right;">
+          <button id="btn-cancelar-acta-extra" style="margin-right:8px;padding:8px 14px;border:none;border-radius:6px;background:#eee;cursor:pointer;font-size:14px;">Cancelar</button>
+          <button id="btn-aceptar-acta-extra" style="padding:8px 14px;border:none;border-radius:6px;background:#1a73e8;color:#fff;cursor:pointer;font-size:14px;">Generar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#btn-cancelar-acta-extra').onclick = () => { overlay.remove(); resolve(null); };
+    overlay.querySelector('#btn-aceptar-acta-extra').onclick = () => {
+      const fecha = overlay.querySelector('#input-fecha-acta-extra').value;
+      if (!fecha) { alert('Elegí una fecha.'); return; }
+      overlay.remove();
+      resolve(fecha);
+    };
+  });
+}
+
+async function generarActaExtraordinaria(mod, nombreMat) {
+  try {
+    const filas = await sbGet('inscripciones_extraordinarias', `mod=eq.${mod}&order=nombre.asc`);
+    if (!filas.length) { alert('No hay inscriptos para esta materia.'); return; }
+    const fecha = await pedirFechaActaExtra();
+    if (!fecha) return;
+
+    const esPrimerAnio = Number(mod) <= 11;
+    const anioLabel = esPrimerAnio ? '1°' : '2°';
+    const nombreBase = nombreMat.replace(/[\\/:*?"<>|]/g, '-');
+    const alumnos = filas.map(f => ({ nombre: f.nombre, dni: f.dni }));
+
+    if (esPrimerAnio) {
+      const gre = filas.filter(f => f.carrera === 'GRE').map(f => ({ nombre: f.nombre, dni: f.dni }));
+      const mi  = filas.filter(f => f.carrera === 'MI').map(f => ({ nombre: f.nombre, dni: f.dni }));
+      if (gre.length) generarDocxActa(nombreMat, anioLabel, fecha, gre, `Acta_Extraordinaria_${nombreBase}_GRE.docx`);
+      if (mi.length)  generarDocxActa(nombreMat, anioLabel, fecha, mi,  `Acta_Extraordinaria_${nombreBase}_MI.docx`);
+    } else {
+      generarDocxActa(nombreMat, anioLabel, fecha, alumnos, `Acta_Extraordinaria_${nombreBase}.docx`);
+    }
+  } catch(e) {
+    alert('Error al generar el acta: ' + e.message);
+  }
+}
+
 // ─── CARGAR RESULTADOS DE MESA (masivo) ────────────────────────
 async function abrirModalResultadosMesa(mesaId, nombreMat, mod, periodo, fecha) {
   const insc = await sbGet('inscripciones', `mesa_id=eq.${mesaId}&estado=eq.inscripto&order=created_at.asc`);
@@ -2222,14 +2386,14 @@ function showView(id) {
     'novedades-admin': 'novedades-admin',
     'estudiantes': 'estudiantes', 'trayectoria': 'estudiantes',
     'nuevo-estudiante': 'estudiantes', 'cargar-materia': 'estudiantes', 'legajo': 'estudiantes',
-    'cursado': 'inscripciones', 'mesas': 'inscripciones',
+    'cursado': 'inscripciones', 'mesas': 'inscripciones', 'extraordinarias': 'inscripciones',
     'usuarios-portal': 'usuarios-portal', 'portal-preview': 'usuarios-portal'
   };
   const titles = {
     'dashboard':'Dashboard', 'estudiantes':'Estudiantes', 'nuevo-estudiante':'Nuevo estudiante',
     'cargar-materia':'Cargar materia', 'plan-estudios':'Plan de estudios', 'horarios':'Horarios', 'cursado':'Inscripción a cursado',
     'legajo':'Legajo documentación', 'novedades-admin':'Novedades y Fechas',
-    'usuarios-portal':'Usuarios del portal', 'portal-preview':'Portal estudiante', 'mesas':'Mesas de examen'
+    'usuarios-portal':'Usuarios del portal', 'portal-preview':'Portal estudiante', 'mesas':'Mesas de examen', 'extraordinarias':'Mesa extraordinaria'
   };
 
   // Resaltar el botón del sidebar correspondiente al grupo de la vista actual
@@ -2257,6 +2421,7 @@ function showView(id) {
   if (id === 'legajo') { cargarDatos().then(() => { cargarLegajos(); poblarSelectLegajo(); }); }
   if (id === 'novedades-admin') { cargarFechasAdmin(); verificarSolicitudesPendientes(); }
   if (id === 'usuarios-portal') { cargarDatos().then(poblarSelectUsuarios); }
+  if (id === 'extraordinarias') { cargarExtraordinariasAdmin(); }
   updateSidebar();
 }
 
