@@ -2047,6 +2047,12 @@ async function sbPatchExtra(tabla, filtro, data) {
   return r.json();
 }
 
+function formatearFechaAdmin(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
 async function cargarExtraordinariasAdmin() {
   // Ventana actual
   const estadoEl = document.getElementById('extra-estado-actual');
@@ -2057,10 +2063,18 @@ async function cargarExtraordinariasAdmin() {
       document.getElementById('extra-apertura').value = l.apertura;
       document.getElementById('extra-cierre').value = l.cierre;
       const hoy = new Date().toISOString().slice(0,10);
-      const abierto = l.apertura <= hoy && hoy <= l.cierre;
-      estadoEl.textContent = abierto
-        ? `Ventana activa: ${l.apertura} al ${l.cierre} (los estudiantes ya pueden inscribirse).`
-        : `Ventana cargada: ${l.apertura} al ${l.cierre} (fuera de rango, no visible para estudiantes todavía).`;
+      let badgeColor, badgeTexto, detalle;
+      if (hoy < l.apertura) {
+        badgeColor = '#c77d00'; badgeTexto = 'AÚN NO ABRIÓ';
+        detalle = `Abre el ${formatearFechaAdmin(l.apertura)} y cierra el ${formatearFechaAdmin(l.cierre)}.`;
+      } else if (hoy > l.cierre) {
+        badgeColor = '#c0392b'; badgeTexto = 'CERRADA';
+        detalle = `Estuvo abierta del ${formatearFechaAdmin(l.apertura)} al ${formatearFechaAdmin(l.cierre)}.`;
+      } else {
+        badgeColor = '#1e8e3e'; badgeTexto = 'ABIERTA AHORA';
+        detalle = `Los estudiantes ya pueden inscribirse. Cierra el ${formatearFechaAdmin(l.cierre)}.`;
+      }
+      estadoEl.innerHTML = `<span style="display:inline-block;background:${badgeColor};color:#fff;font-size:11px;font-weight:700;letter-spacing:.3px;padding:3px 10px;border-radius:20px;margin-bottom:6px;">${badgeTexto}</span><br>${detalle}`;
     } else {
       estadoEl.textContent = 'Todavía no cargaste ninguna ventana de inscripción.';
     }
