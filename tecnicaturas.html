@@ -895,13 +895,13 @@
       <div class="tabs group-nav">
         <button class="tab group-nav-tab" data-view="cursado" onclick="showView('cursado')">Inscripción a cursado</button>
         <button class="tab group-nav-tab active" data-view="mesas" onclick="showView('mesas')">Inscripción a mesas</button>
-        <button class="tab group-nav-tab" data-view="extraordinarias" onclick="showView('extraordinarias')">Mesa extraordinaria</button>
       </div>
 
       <div class="tabs">
         <button class="tab active" onclick="switchTab('tab-mesas-abrir', this)">Abrir llamados</button>
         <button class="tab" onclick="switchTab('tab-mesas-lista', this); cargarMesasAdmin()">Llamados activos</button>
         <button class="tab" onclick="switchTab('tab-mesas-inscriptos', this); cargarInscriptosAdmin()">Inscriptos</button>
+        <button class="tab" onclick="switchTab('tab-mesas-extra', this); cargarExtraordinariasAdmin()">Mesa extraordinaria</button>
       </div>
 
       <!-- ABRIR LLAMADOS -->
@@ -1049,44 +1049,37 @@
         </div>
         <div id="mesas-inscriptos-lista"><div class="empty"><p>Seleccioná un período para ver los inscriptos.</p></div></div>
       </div>
+
+      <!-- MESA EXTRAORDINARIA -->
+      <div id="tab-mesas-extra" style="display:none;">
+        <div class="card" style="margin-bottom:16px;max-width:480px;">
+          <div class="card-title">Ventana de inscripción a demanda</div>
+          <p style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="extra-estado-actual">Cargando...</p>
+          <div style="display:flex;gap:10px;">
+            <div class="form-group" style="flex:1;margin-bottom:0;">
+              <label>Apertura</label>
+              <input type="date" id="extra-apertura">
+            </div>
+            <div class="form-group" style="flex:1;margin-bottom:0;">
+              <label>Cierre</label>
+              <input type="date" id="extra-cierre">
+            </div>
+          </div>
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn btn-primary" style="flex:1;" onclick="guardarConfigExtraordinaria()">Guardar y habilitar</button>
+            <button class="btn btn-ghost" id="btn-eliminar-ventana-extra" style="display:none;" onclick="eliminarVentanaExtraordinaria()">Eliminar ventana</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Solicitudes recibidas, por materia</div>
+          <div id="extra-solicitudes-content"><p style="color:var(--text3);font-size:13px;">Cargando...</p></div>
+        </div>
+      </div>
     </div>
 
 
     <!-- INSCRIPCIÓN A CURSADO -->
-    <div id="view-extraordinarias" class="view">
-      <div class="breadcrumb">inicio / mesa extraordinaria</div>
-      <div class="page-header">
-        <h2>Mesa extraordinaria</h2>
-        <p>Llamados a demanda (abril y septiembre) — ventana de inscripción y solicitudes recibidas</p>
-      </div>
-      <div class="tabs group-nav">
-        <button class="tab group-nav-tab" data-view="cursado" onclick="showView('cursado')">Inscripción a cursado</button>
-        <button class="tab group-nav-tab" data-view="mesas" onclick="showView('mesas')">Inscripción a mesas</button>
-        <button class="tab group-nav-tab active" data-view="extraordinarias" onclick="showView('extraordinarias')">Mesa extraordinaria</button>
-      </div>
-
-      <div class="card" style="margin-top:16px;max-width:480px;">
-        <div class="card-title">Ventana de inscripción</div>
-        <p style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="extra-estado-actual">Cargando...</p>
-        <div style="display:flex;gap:10px;">
-          <div class="form-group" style="flex:1;margin-bottom:0;">
-            <label>Apertura</label>
-            <input type="date" id="extra-apertura">
-          </div>
-          <div class="form-group" style="flex:1;margin-bottom:0;">
-            <label>Cierre</label>
-            <input type="date" id="extra-cierre">
-          </div>
-        </div>
-        <button class="btn btn-primary" style="margin-top:12px;width:100%;" onclick="guardarConfigExtraordinaria()">Guardar y habilitar</button>
-      </div>
-
-      <div class="card" style="margin-top:16px;">
-        <div class="card-title">Solicitudes recibidas, por materia</div>
-        <div id="extra-solicitudes-content"><p style="color:var(--text3);font-size:13px;">Cargando...</p></div>
-      </div>
-    </div>
-
     <div id="view-cursado" class="view">
       <div class="breadcrumb">inicio / inscripción a cursado</div>
       <div class="page-header">
@@ -1096,7 +1089,6 @@
       <div class="tabs group-nav">
         <button class="tab group-nav-tab active" data-view="cursado" onclick="showView('cursado')">Inscripción a cursado</button>
         <button class="tab group-nav-tab" data-view="mesas" onclick="showView('mesas')">Inscripción a mesas</button>
-        <button class="tab group-nav-tab" data-view="extraordinarias" onclick="showView('extraordinarias')">Mesa extraordinaria</button>
       </div>
 
       <div class="tabs">
@@ -2053,13 +2045,18 @@ function formatearFechaAdmin(iso) {
   return `${d}/${m}/${y}`;
 }
 
+let ventanaExtraActualId = null;
+
 async function cargarExtraordinariasAdmin() {
   // Ventana actual
   const estadoEl = document.getElementById('extra-estado-actual');
+  const btnEliminar = document.getElementById('btn-eliminar-ventana-extra');
   try {
     const activos = await sbGet('llamados_extraordinarios', 'activo=eq.true&order=creado_en.desc&limit=1');
     const l = activos[0];
     if (l) {
+      ventanaExtraActualId = l.id;
+      btnEliminar.style.display = 'inline-block';
       document.getElementById('extra-apertura').value = l.apertura;
       document.getElementById('extra-cierre').value = l.cierre;
       const hoy = new Date().toISOString().slice(0,10);
@@ -2076,6 +2073,10 @@ async function cargarExtraordinariasAdmin() {
       }
       estadoEl.innerHTML = `<span style="display:inline-block;background:${badgeColor};color:#fff;font-size:11px;font-weight:700;letter-spacing:.3px;padding:3px 10px;border-radius:20px;margin-bottom:6px;">${badgeTexto}</span><br>${detalle}`;
     } else {
+      ventanaExtraActualId = null;
+      btnEliminar.style.display = 'none';
+      document.getElementById('extra-apertura').value = '';
+      document.getElementById('extra-cierre').value = '';
       estadoEl.textContent = 'Todavía no cargaste ninguna ventana de inscripción.';
     }
   } catch(e) {
@@ -2128,6 +2129,19 @@ async function guardarConfigExtraordinaria() {
     cargarExtraordinariasAdmin();
   } catch(e) {
     alert('Error al guardar: ' + e.message);
+  }
+}
+
+async function eliminarVentanaExtraordinaria() {
+  if (!ventanaExtraActualId) return;
+  if (!confirm('¿Eliminar esta ventana de inscripción? Los estudiantes van a dejar de verla. Las solicitudes ya recibidas NO se borran.')) return;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/llamados_extraordinarios?id=eq.${ventanaExtraActualId}`, { method:'DELETE', headers: SB_H });
+    if (!r.ok) throw new Error(await r.text());
+    showToast ? showToast('Ventana eliminada ✓') : alert('Ventana eliminada.');
+    cargarExtraordinariasAdmin();
+  } catch(e) {
+    alert('Error al eliminar: ' + e.message);
   }
 }
 
@@ -2400,14 +2414,14 @@ function showView(id) {
     'novedades-admin': 'novedades-admin',
     'estudiantes': 'estudiantes', 'trayectoria': 'estudiantes',
     'nuevo-estudiante': 'estudiantes', 'cargar-materia': 'estudiantes', 'legajo': 'estudiantes',
-    'cursado': 'inscripciones', 'mesas': 'inscripciones', 'extraordinarias': 'inscripciones',
+    'cursado': 'inscripciones', 'mesas': 'inscripciones',
     'usuarios-portal': 'usuarios-portal', 'portal-preview': 'usuarios-portal'
   };
   const titles = {
     'dashboard':'Dashboard', 'estudiantes':'Estudiantes', 'nuevo-estudiante':'Nuevo estudiante',
     'cargar-materia':'Cargar materia', 'plan-estudios':'Plan de estudios', 'horarios':'Horarios', 'cursado':'Inscripción a cursado',
     'legajo':'Legajo documentación', 'novedades-admin':'Novedades y Fechas',
-    'usuarios-portal':'Usuarios del portal', 'portal-preview':'Portal estudiante', 'mesas':'Mesas de examen', 'extraordinarias':'Mesa extraordinaria'
+    'usuarios-portal':'Usuarios del portal', 'portal-preview':'Portal estudiante', 'mesas':'Mesas de examen'
   };
 
   // Resaltar el botón del sidebar correspondiente al grupo de la vista actual
@@ -2435,7 +2449,6 @@ function showView(id) {
   if (id === 'legajo') { cargarDatos().then(() => { cargarLegajos(); poblarSelectLegajo(); }); }
   if (id === 'novedades-admin') { cargarFechasAdmin(); verificarSolicitudesPendientes(); }
   if (id === 'usuarios-portal') { cargarDatos().then(poblarSelectUsuarios); }
-  if (id === 'extraordinarias') { cargarExtraordinariasAdmin(); }
   updateSidebar();
 }
 

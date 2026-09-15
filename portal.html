@@ -611,19 +611,15 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); font
       <div class="subnav">
         <button class="subnav-pill active" data-sub="tab-mesa" onclick="showSubTab('tab-inscripciones-group','tab-mesa',this)">Mesas de examen</button>
         <button class="subnav-pill" data-sub="tab-cursado" onclick="showSubTab('tab-inscripciones-group','tab-cursado',this)">Cursado</button>
-        <button class="subnav-pill" data-sub="tab-extraordinaria" onclick="showSubTab('tab-inscripciones-group','tab-extraordinaria',this)">Mesa extraordinaria</button>
       </div>
 
       <div id="tab-mesa" class="subpane" style="display:block;">
+        <div id="extraordinaria-content"></div>
         <div id="mesa-content"><p style="color:var(--text3);">Cargando...</p></div>
       </div>
 
       <div id="tab-cursado" class="subpane">
         <div id="cursado-content"><p style="color:var(--text3);">Cargando...</p></div>
-      </div>
-
-      <div id="tab-extraordinaria" class="subpane">
-        <div id="extraordinaria-content"><p style="color:var(--text3);">Cargando...</p></div>
       </div>
     </div>
 
@@ -2064,7 +2060,6 @@ let extraSeleccion = [];
 
 async function renderExtraordinaria() {
   const cont = document.getElementById('extraordinaria-content');
-  cont.innerHTML = '<p style="color:var(--text3);font-size:13px;">Cargando...</p>';
   try {
     const llamados = await sbGet('llamados_extraordinarios', 'activo=eq.true&order=creado_en.desc&limit=1');
     const llamado = llamados[0];
@@ -2072,8 +2067,8 @@ async function renderExtraordinaria() {
     const abierto = llamado && llamado.apertura <= hoy && hoy <= llamado.cierre;
 
     if (!abierto) {
-      cont.innerHTML = `<div class="alert alert-info"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        La inscripción a mesa extraordinaria está cerrada en este momento.${llamado ? ` Próxima ventana: ${formatearFechaISOPortal(llamado.apertura)} al ${formatearFechaISOPortal(llamado.cierre)}.` : ''}</div>`;
+      // Sin ventana activa (o fuera de rango): no ocupamos lugar en "Mesas de examen".
+      cont.innerHTML = '';
       return;
     }
 
@@ -2087,7 +2082,7 @@ async function renderExtraordinaria() {
     }
 
     cont.innerHTML = `
-      <div class="card">
+      <div class="card" style="margin-bottom:16px;">
         <div class="card-title">Inscripción a mesa extraordinaria</div>
         <p style="font-size:12px;margin-bottom:10px;">
           <span class="badge badge-success">Inscripción abierta hasta el ${formatearFechaISOPortal(llamado.cierre)}</span>
