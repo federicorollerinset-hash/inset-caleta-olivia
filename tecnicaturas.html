@@ -6305,6 +6305,7 @@ const TIPO_NOTIF = {
   otra:                { label: 'Constancia (otra)',               icon: '📄', color: 'var(--accent)' },
   inscripcion_mesa:    { label: 'Inscripción a mesa',              icon: '📝', color: 'var(--warning)' },
   reseteo_clave:       { label: 'Pedido de reseteo de clave',      icon: '🔑', color: 'var(--danger)'  },
+  'Inscripción a mesa extraordinaria': { label: 'Inscripción a mesa extraordinaria', icon: '📩', color: 'var(--warning)' },
 };
 
 async function cargarSolicitudesAdmin() {
@@ -6335,6 +6336,7 @@ async function cargarSolicitudesAdmin() {
         tipo: r.tipo === 'Reseteo de clave' ? 'reseteo_clave' : r.tipo,
         estado: r.leida ? 'leida' : 'pendiente',
         detalle: r.detalle || '',
+        datos: r.datos || null,
         leida: !!r.leida,
         fecha: r.created_at,
       })),
@@ -6390,6 +6392,9 @@ async function cargarSolicitudesAdmin() {
             ${n.tabla === 'constancias' && GENERADORES_CONSTANCIA[n.tipo] ? `
               <button class="btn btn-success btn-sm" onclick="${GENERADORES_CONSTANCIA[n.tipo]}('${n.id}')" style="font-size:11px;">Generar Word</button>
             ` : ''}
+            ${n.datos && n.datos.docx_b64 ? `
+              <button class="btn btn-success btn-sm" onclick="descargarNotaAdjunta('${n.id}')" style="font-size:11px;">Descargar nota</button>
+            ` : ''}
             ${n.tabla === 'constancias' && n.tipo !== 'reseteo_clave' ? `
               <select onchange="cambiarEstadoConstancia('${n.id}', this.value)" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:5px;background:var(--bg);">
                 <option value="pendiente"  ${n.estado==='pendiente'  ?'selected':''}>Pendiente</option>
@@ -6415,6 +6420,19 @@ function actualizarBadgeNotif(n) {
   });
   const dashCard = document.getElementById('dash-card-solicitudes');
   if (dashCard) dashCard.style.display = n ? 'block' : 'none';
+}
+
+function descargarNotaAdjunta(id) {
+  const n = ultimasSolicitudesAdmin.find(x => x.id === id);
+  if (!n || !n.datos || !n.datos.docx_b64) { alert('No se encontró el archivo adjunto.'); return; }
+  try {
+    const bytes = b64ToUint8Array(n.datos.docx_b64);
+    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    saveAs(blob, n.datos.nombre_archivo || 'Nota_inscripcion_mesa_extraordinaria.docx');
+    if (!n.leida) marcarLeidaDB(id, 'solicitudes_portal');
+  } catch(e) {
+    alert('Error al descargar: ' + e.message);
+  }
 }
 
 async function marcarLeidaDB(id, tabla) {
