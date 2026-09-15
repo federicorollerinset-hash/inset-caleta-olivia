@@ -2108,7 +2108,10 @@ async function cargarExtraordinariasAdmin() {
           <button class="btn btn-ghost btn-sm" onclick="generarActaExtraordinaria(${g.mod}, '${g.nombre.replace(/'/g,"\\'")}')">Generar acta</button>
         </div>
         <div style="margin-top:8px;">
-          ${g.alumnos.map(a => `<div style="font-size:12px;color:var(--text2);padding:3px 0;border-top:1px solid var(--border);">${a.nombre} · ${a.dni||'—'} · ${a.carrera}</div>`).join('')}
+          ${g.alumnos.map(a => `<div style="font-size:12px;color:var(--text2);padding:3px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <span>${a.nombre} · ${a.dni||'—'} · ${a.carrera}</span>
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:2px 8px;" onclick="eliminarInscripcionExtra('${a.id}')" title="Eliminar">✕</button>
+          </div>`).join('')}
         </div>
       </div>`).join('');
   } catch(e) {
@@ -2139,6 +2142,18 @@ async function eliminarVentanaExtraordinaria() {
     const r = await fetch(`${SB_URL}/rest/v1/llamados_extraordinarios?id=eq.${ventanaExtraActualId}`, { method:'DELETE', headers: SB_H });
     if (!r.ok) throw new Error(await r.text());
     showToast ? showToast('Ventana eliminada ✓') : alert('Ventana eliminada.');
+    cargarExtraordinariasAdmin();
+  } catch(e) {
+    alert('Error al eliminar: ' + e.message);
+  }
+}
+
+async function eliminarInscripcionExtra(id) {
+  if (!confirm('¿Eliminar esta inscripción a mesa extraordinaria?')) return;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/inscripciones_extraordinarias?id=eq.${id}`, { method:'DELETE', headers: SB_H });
+    if (!r.ok) throw new Error(await r.text());
+    showToast ? showToast('Inscripción eliminada ✓') : alert('Eliminada.');
     cargarExtraordinariasAdmin();
   } catch(e) {
     alert('Error al eliminar: ' + e.message);
