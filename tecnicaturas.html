@@ -6751,6 +6751,12 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw-tecnicaturas.js', { scope: '/tecnicaturas.html' }).catch(err => console.warn('SW no registrado:', err));
   });
+  let swRecargandoTec = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swRecargandoTec) return;
+    swRecargandoTec = true;
+    window.location.reload();
+  });
 }
 </script>
 </body>

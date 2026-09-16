@@ -2153,8 +2153,10 @@ async function generarNotaExtraordinaria() {
       nombreCompleto: est.nombre,
       dni: est.dni
     });
+    const nombreArchivo = `Nota_inscripcion_mesa_extraordinaria_${(est.nombre||'').replace(/[\\/:*?"<>|]/g,'-')}.docx`;
+    const notaB64 = doc.getZip().generate({ type:'base64' });
     const blob = doc.getZip().generate({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    saveAs(blob, `Nota_inscripcion_mesa_extraordinaria_${(est.nombre||'').replace(/[\\/:*?"<>|]/g,'-')}.docx`);
+    saveAs(blob, nombreArchivo);
 
     for (const m of elegidas) {
       await sbPost('inscripciones_extraordinarias', {
@@ -2167,7 +2169,16 @@ async function generarNotaExtraordinaria() {
         dni: est.dni
       });
     }
-    await guardarSolicitud('Inscripción a mesa extraordinaria', elegidas.map(m=>m.nombre).join(' · '), false);
+    // Guarda la solicitud CON la nota adjunta (en base64) para que secretaría la pueda
+    // descargar desde Novedades y Fechas > Notificaciones, sin depender del estudiante.
+    await sbPost('solicitudes_portal', {
+      estudiante_id: est.id,
+      tipo: 'Inscripción a mesa extraordinaria',
+      detalle: elegidas.map(m=>m.nombre).join(' · '),
+      leida: false,
+      datos: { docx_b64: notaB64, nombre_archivo: nombreArchivo }
+    });
+
     showToast('Nota generada ✓ Presentala en secretaría.');
   } catch(e) {
     alert('Error al generar la nota: ' + e.message);
@@ -2192,6 +2203,15 @@ restaurarSesion();
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/portal.html' }).catch(err => console.warn('SW no registrado:', err));
+  });
+  // Auto-actualización silenciosa: cuando el service worker instala una versión
+  // nueva y toma el control, recargamos la página una sola vez para que el
+  // estudiante vea el código actualizado sin tener que desinstalar la app.
+  let swRecargando = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swRecargando) return;
+    swRecargando = true;
+    window.location.reload();
   });
 }
 </script>
