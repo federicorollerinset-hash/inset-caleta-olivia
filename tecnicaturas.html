@@ -2033,10 +2033,17 @@ async function generarActaVolante(mesaId, nombreMat, mod, fecha) {
 
 
 // ─── MESA EXTRAORDINARIA (admin) ───────────────────────────────
+let escriturasPendientes = 0; // cuenta guardados en curso, para no recargar la página a mitad de un guardado
+
 async function sbPatchExtra(tabla, filtro, data) {
-  const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${filtro}`, { method:'PATCH', headers: SB_H, body: JSON.stringify(data) });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  escriturasPendientes++;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${filtro}`, { method:'PATCH', headers: SB_H, body: JSON.stringify(data) });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  } finally {
+    escriturasPendientes--;
+  }
 }
 
 function formatearFechaAdmin(iso) {
@@ -2138,6 +2145,7 @@ async function guardarConfigExtraordinaria() {
 async function eliminarVentanaExtraordinaria() {
   if (!ventanaExtraActualId) return;
   if (!confirm('¿Eliminar esta ventana de inscripción? Los estudiantes van a dejar de verla. Las solicitudes ya recibidas NO se borran.')) return;
+  escriturasPendientes++;
   try {
     const r = await fetch(`${SB_URL}/rest/v1/llamados_extraordinarios?id=eq.${ventanaExtraActualId}`, { method:'DELETE', headers: SB_H });
     if (!r.ok) throw new Error(await r.text());
@@ -2145,11 +2153,14 @@ async function eliminarVentanaExtraordinaria() {
     cargarExtraordinariasAdmin();
   } catch(e) {
     alert('Error al eliminar: ' + e.message);
+  } finally {
+    escriturasPendientes--;
   }
 }
 
 async function eliminarInscripcionExtra(id) {
   if (!confirm('¿Eliminar esta inscripción a mesa extraordinaria?')) return;
+  escriturasPendientes++;
   try {
     const r = await fetch(`${SB_URL}/rest/v1/inscripciones_extraordinarias?id=eq.${id}`, { method:'DELETE', headers: SB_H });
     if (!r.ok) throw new Error(await r.text());
@@ -2157,6 +2168,8 @@ async function eliminarInscripcionExtra(id) {
     cargarExtraordinariasAdmin();
   } catch(e) {
     alert('Error al eliminar: ' + e.message);
+  } finally {
+    escriturasPendientes--;
   }
 }
 
@@ -2351,13 +2364,23 @@ async function sbGet(tabla, params='') {
   return r.json();
 }
 async function sbPost(tabla, data) {
-  const r = await fetch(`${SB_URL}/rest/v1/${tabla}`, { method:'POST', headers: SB_H, body: JSON.stringify(data) });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  escriturasPendientes++;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${tabla}`, { method:'POST', headers: SB_H, body: JSON.stringify(data) });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  } finally {
+    escriturasPendientes--;
+  }
 }
 async function sbDelete(tabla, filtro) {
-  const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${filtro}`, { method:'DELETE', headers: { ...SB_H, 'Prefer':'' } });
-  if (!r.ok) throw new Error(await r.text());
+  escriturasPendientes++;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${filtro}`, { method:'DELETE', headers: { ...SB_H, 'Prefer':'' } });
+    if (!r.ok) throw new Error(await r.text());
+  } finally {
+    escriturasPendientes--;
+  }
 }
 async function sbUpsert(tabla, data, onConflict='estudiante_id,mod') {
   const r = await fetch(`${SB_URL}/rest/v1/${tabla}?on_conflict=${onConflict}`, {
@@ -6755,7 +6778,14 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (swRecargandoTec) return;
     swRecargandoTec = true;
-    window.location.reload();
+    const esperarYRecargarTec = () => {
+      if (typeof escriturasPendientes !== 'undefined' && escriturasPendientes > 0) {
+        setTimeout(esperarYRecargarTec, 400);
+        return;
+      }
+      window.location.reload();
+    };
+    esperarYRecargarTec();
   });
 }
 </script>

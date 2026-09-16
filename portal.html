@@ -747,20 +747,32 @@ async function guardarSolicitud(tipo, detalle, notificar = true) {
 }
 
 
+let escriturasPendientes = 0; // cuenta guardados en curso, para no recargar la página a mitad de un guardado
+
 async function sbGet(tabla, params) {
   const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${params}`, { headers: SB_H });
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
 async function sbPost(tabla, data) {
-  const r = await fetch(`${SB_URL}/rest/v1/${tabla}`, { method:'POST', headers: SB_H, body: JSON.stringify(data) });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  escriturasPendientes++;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${tabla}`, { method:'POST', headers: SB_H, body: JSON.stringify(data) });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  } finally {
+    escriturasPendientes--;
+  }
 }
 async function sbPatch(tabla, filtro, data) {
-  const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${filtro}`, { method:'PATCH', headers: SB_H, body: JSON.stringify(data) });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  escriturasPendientes++;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/${tabla}?${filtro}`, { method:'PATCH', headers: SB_H, body: JSON.stringify(data) });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  } finally {
+    escriturasPendientes--;
+  }
 }
 
 // ─── PLAN DE ESTUDIOS ─────────────────────────────────────────────
@@ -2211,7 +2223,14 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (swRecargando) return;
     swRecargando = true;
-    window.location.reload();
+    const esperarYRecargar = () => {
+      if (typeof escriturasPendientes !== 'undefined' && escriturasPendientes > 0) {
+        setTimeout(esperarYRecargar, 400);
+        return;
+      }
+      window.location.reload();
+    };
+    esperarYRecargar();
   });
 }
 </script>
