@@ -1,5 +1,12 @@
 // Service Worker de Trayectorias / Secretaría InSET Caleta Olivia
-const CACHE_NAME = 'inset-tecnicaturas-v1';
+//
+// v2: se fuerza { cache: 'no-store' } en el fetch para que la app siempre
+// pida la versión real al servidor (sin que el caché HTTP del navegador
+// intercepte la petición), y se activa la versión nueva apenas está lista
+// (skipWaiting + clients.claim), para no tener que desinstalar la app cada
+// vez que se sube una actualización.
+
+const CACHE_NAME = 'inset-tecnicaturas-v2';
 const PRECACHE_URLS = [
   '/tecnicaturas.html',
   '/manifest-tecnicaturas.json',
@@ -31,7 +38,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   event.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-store' }) // bypass del caché HTTP del navegador: siempre pide la red real
       .then((response) => {
         const resClone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));

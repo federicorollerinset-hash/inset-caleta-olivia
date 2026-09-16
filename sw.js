@@ -1,8 +1,14 @@
 // Service Worker del Portal Estudiantil InSET Caleta Olivia
 // Estrategia: SIEMPRE priorizar la red (datos frescos de Supabase, notas, etc).
 // El caché solo se usa como respaldo si no hay conexión.
+//
+// v2: se fuerza { cache: 'no-store' } en el fetch para que la app siempre
+// pida la versión real al servidor (sin que el caché HTTP del navegador
+// intercepte la petición), y se activa la versión nueva apenas está lista
+// (skipWaiting + clients.claim), para que los estudiantes no tengan que
+// desinstalar la app cada vez que se sube una actualización.
 
-const CACHE_NAME = 'inset-portal-v1'; // subir el número cada vez que se suba una actualización importante
+const CACHE_NAME = 'inset-portal-v2'; // subir el número cada vez que se suba una actualización importante
 const PRECACHE_URLS = [
   '/portal.html',
   '/manifest.json',
@@ -32,7 +38,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first. Si falla la red, recurre al caché (modo offline básico).
+// Fetch: network-first "de verdad". Si falla la red, recurre al caché (modo offline básico).
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
@@ -43,7 +49,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-store' }) // bypass del caché HTTP del navegador: siempre pide la red real
       .then((response) => {
         // Actualiza el caché con la versión fresca
         const resClone = response.clone();
