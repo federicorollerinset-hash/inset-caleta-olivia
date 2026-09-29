@@ -293,6 +293,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/docxtemplater/3.66.4/docxtemplater.min.js"></script>
 </head>
 <body>
+<div id="auth-overlay" style="position:fixed;inset:0;z-index:99999;background:#0f2444;display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Inter',sans-serif;">
+  <div id="auth-cargando" style="color:#a8c0e0;font-size:14px;">Verificando sesión…</div>
+  <div id="auth-form" style="display:none;background:#fff;border-radius:14px;padding:32px 28px;width:100%;max-width:360px;box-shadow:0 10px 40px rgba(0,0,0,.35);">
+    <div style="font-size:12px;letter-spacing:.08em;color:#1a4f8a;font-weight:700;text-transform:uppercase;">INSET Caleta Olivia</div>
+    <div style="font-size:20px;font-weight:700;color:#0f1a2e;margin:6px 0 18px;">Acceso de secretaría</div>
+    <label style="font-size:13px;color:#0f1a2e;">Email</label>
+    <input id="auth-email" type="email" autocomplete="username" style="width:100%;box-sizing:border-box;padding:10px 12px;margin:4px 0 12px;border:1px solid #d0d9e8;border-radius:8px;font-size:15px;">
+    <label style="font-size:13px;color:#0f1a2e;">Contraseña</label>
+    <input id="auth-pass" type="password" autocomplete="current-password" style="width:100%;box-sizing:border-box;padding:10px 12px;margin:4px 0 12px;border:1px solid #d0d9e8;border-radius:8px;font-size:15px;">
+    <div id="auth-error" style="display:none;color:#b83232;font-size:13px;margin-bottom:10px;"></div>
+    <button id="auth-btn" onclick="authLogin()" style="width:100%;padding:11px;background:#1a4f8a;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Ingresar</button>
+  </div>
+</div>
 <div id="print-area"></div>
 
 <div class="mobile-header">
@@ -356,6 +369,7 @@
         <div class="label">MATERIAS CARGADAS</div>
         <div class="value" id="sb-materias">0</div>
       </div>
+      <button onclick="authLogout()" style="width:100%;margin-top:10px;padding:9px;background:transparent;color:#a8c0e0;border:1px solid #1e3d6e;border-radius:8px;font-size:13px;cursor:pointer;">Cerrar sesión</button>
     </div>
   </aside>
 
@@ -2337,8 +2351,121 @@ async function guardarResultadosMesa() {
 
 // ─── SUPABASE ─────────────────────────────────────────────────
 const SB_URL = 'https://jqjkhgynbjlxdfituplx.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpxamtoZ3luYmpseGRmaXR1cGx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDUwMzkxMSwiZXhwIjoyMDk2MDc5OTExfQ.Yx63xZCpkMz7yf4_4ftiri7Lp3oK8tHBpquDQ6pFRKA';
-const SB_H = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+const SB_KEY = 'sb_publishable_jJYM4gMw9-lIDuJkJUPkFw_7KcJbcMy'; // clave PÚBLICA (publishable). Nunca pegar acá la secret/service_role.
+const SB_H = { 'apikey': SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+// ─── AUTENTICACIÓN DE SECRETARÍA (Supabase Auth) ───────────────
+// Después del login, SB_H['Authorization'] pasa a llevar el token de la sesión,
+// y todas las llamadas existentes lo usan sin cambios.
+const AUTH = { token: null, refresh: null, expiraEn: 0, timer: null, enCurso: null };
+const AUTH_LS = 'inset_sec_auth';
+
+function authAplicar(d) {
+  AUTH.token = d.access_token;
+  AUTH.refresh = d.refresh_token;
+  AUTH.expiraEn = Date.now() + (d.expires_in || 3600) * 1000;
+  SB_H['Authorization'] = 'Bearer ' + d.access_token;
+  try { localStorage.setItem(AUTH_LS, JSON.stringify({ refresh_token: d.refresh_token })); } catch(e) {}
+  clearTimeout(AUTH.timer);
+  AUTH.timer = setTimeout(authRefrescar, Math.max(((d.expires_in || 3600) - 120) * 1000, 30000));
+}
+
+function authLimpiar() {
+  AUTH.token = null; AUTH.refresh = null;
+  delete SB_H['Authorization'];
+  clearTimeout(AUTH.timer);
+  try { localStorage.removeItem(AUTH_LS); } catch(e) {}
+}
+
+async function authRefrescar() {
+  if (!AUTH.refresh) return false;
+  if (AUTH.enCurso) return AUTH.enCurso;
+  AUTH.enCurso = (async () => {
+    try {
+      const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: AUTH.refresh })
+      });
+      if (!r.ok) throw new Error('refresh');
+      authAplicar(await r.json());
+      return true;
+    } catch(e) {
+      // sin red: reintenta en 30 s; si el servidor rechaza la sesión, vuelve al login
+      if (e.message === 'refresh') { authLimpiar(); authMostrarLogin(); }
+      else { AUTH.timer = setTimeout(authRefrescar, 30000); }
+      return false;
+    } finally { AUTH.enCurso = null; }
+  })();
+  return AUTH.enCurso;
+}
+
+function authMostrarLogin() {
+  document.getElementById('auth-overlay').style.display = 'flex';
+  document.getElementById('auth-cargando').style.display = 'none';
+  document.getElementById('auth-form').style.display = 'block';
+  document.getElementById('auth-pass').value = '';
+}
+
+function authArrancarApp() {
+  document.getElementById('auth-overlay').style.display = 'none';
+  cargarDatos();
+  if (typeof verificarSolicitudesPendientes === 'function') verificarSolicitudesPendientes();
+}
+
+async function authLogin() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  const errEl = document.getElementById('auth-error');
+  const btn   = document.getElementById('auth-btn');
+  errEl.style.display = 'none';
+  if (!email || !pass) { errEl.textContent = 'Completá email y contraseña.'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'Ingresando…';
+  try {
+    const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    if (!r.ok) {
+      errEl.textContent = (r.status === 400 || r.status === 401) ? 'Email o contraseña incorrectos.' : 'No se pudo ingresar (error ' + r.status + ').';
+      errEl.style.display = 'block';
+    } else {
+      authAplicar(await r.json());
+      authArrancarApp();
+    }
+  } catch(e) {
+    errEl.textContent = 'Error de conexión. Probá de nuevo.'; errEl.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Ingresar';
+}
+
+function authLogout() {
+  authLimpiar();
+  location.reload();
+}
+
+async function authInit() {
+  let guardado = null;
+  try { guardado = JSON.parse(localStorage.getItem(AUTH_LS) || 'null'); } catch(e) {}
+  if (guardado && guardado.refresh_token) {
+    AUTH.refresh = guardado.refresh_token;
+    if (await authRefrescar()) { authArrancarApp(); return; }
+    if (AUTH.refresh) {   // falló por red, no por rechazo: mostrar login igual
+      authMostrarLogin(); return;
+    }
+    return;               // rechazada: authRefrescar ya mostró el login
+  }
+  authMostrarLogin();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('auth-form').style.display === 'block') authLogin();
+});
+// Al volver a la pestaña, si el token venció mientras dormía, renovarlo
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && AUTH.refresh && Date.now() > AUTH.expiraEn - 60000) authRefrescar();
+});
 
 // ─── HORA 24HS (evita que el navegador muestre AM/PM según el idioma del SO) ───
 function formatHora24(el) {
@@ -4350,14 +4477,14 @@ function selectHorario(dataKey, btn) {
 
 renderHorario('horarios-contenido', 'hor-notec');
 
-cargarDatos();
+authInit();
 
 // ─── POLLING + NOTIFICACIONES ─────────────────────────────────────
 let _ultimosPendientes = 0;
 let _pollingActivo = true;
 
 async function pollingNotificaciones() {
-  if (!_pollingActivo) return;
+  if (!_pollingActivo || !AUTH.token) return;
   try {
     const [constPend, resetPend] = await Promise.all([
       sbGet('constancias',        'estado=eq.pendiente&select=id'),
@@ -6526,6 +6653,7 @@ async function atenderReseteo(id, estudianteId, nombre, carrera) {
 }
 
 async function verificarSolicitudesPendientes() {
+  if (!AUTH.token) return;
   try {
     const [constPend, resetPend] = await Promise.all([
       sbGet('constancias',        'estado=eq.pendiente&select=id'),
