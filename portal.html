@@ -679,7 +679,7 @@ async function api(action, body = {}) {
     if (r.status === 401 && portalToken && j && j.error === 'sesion_invalida') {
       // La sesión venció o cambió la clave: volver al login
       portalToken = null; try { localStorage.removeItem('inset_portal_sesion_v2'); } catch(e) {}
-      alert('Tu sesión venció. Ingresá de nuevo.');
+      alert('Tu sesión venció. Ingresá de nuevo.' + (j.motivo ? ' [' + j.motivo + ']' : ''));
       location.reload();
     }
     const e = new Error((j && j.error) ? j.error : txt); e.status = r.status; throw e;
