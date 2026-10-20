@@ -1184,6 +1184,10 @@
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Imprimir listado
           </button>
+          <button class="btn btn-ghost btn-sm" onclick="exportarPracticasExcel()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar prácticas (Excel)
+          </button>
         </div>
         <div id="cursado-inscriptos-lista"><div class="empty"><p>Seleccioná un período.</p></div></div>
       </div>
@@ -4868,7 +4872,7 @@ async function cargarInscriptosCursadoAdmin() {
     });
 
     const nombresMap = {};
-    estudiantes.forEach(e => { nombresMap[e.id] = { nombre: e.nombre, carrera: e.carrera }; });
+    estudiantes.forEach(e => { nombresMap[e.id] = { nombre: e.nombre, carrera: e.carrera, dni: e.dni }; });
     inscCursadoPorMod = porMod;
 
     const entradas = Object.entries(porMod).map(([key, lista]) => {
@@ -4879,7 +4883,8 @@ async function cargarInscriptosCursadoAdmin() {
         id: i.id,
         estudiante_id: i.estudiante_id,
         nombre: nombresMap[i.estudiante_id]?.nombre || '(alumno no encontrado)',
-        carreraEst: nombresMap[i.estudiante_id]?.carrera || ''
+        carreraEst: nombresMap[i.estudiante_id]?.carrera || '',
+        dni: nombresMap[i.estudiante_id]?.dni || ''
       })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
       return { key, mod, carrera: carrera || '', lista: listaOrdenada, nombreMat };
     }).sort((a, b) => a.mod - b.mod || a.carrera.localeCompare(b.carrera, 'es'));
@@ -4958,12 +4963,51 @@ function renderAulaBoton({ key, mod, carrera, lista, nombreMat }) {
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;">
         ${lista.map(est => `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;font-size:12px;">
-          <span>${est.nombre} <span class="badge ${est.carreraEst === 'GRE' ? 'badge-info' : 'badge-warning'}" style="font-size:9px;padding:1px 5px;">${est.carreraEst}</span></span>
+          <span>${est.nombre} <span class="badge ${est.carreraEst === 'GRE' ? 'badge-info' : 'badge-warning'}" style="font-size:9px;padding:1px 5px;">${est.carreraEst}</span> <span style="color:var(--text3);font-size:11px;">· DNI ${est.dni || '—'}</span></span>
           <span onclick="quitarInscripcionAula('${est.id}','${est.nombre.replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--text3);font-size:14px;line-height:1;padding:0 4px;" title="Quitar">×</span>
         </div>`).join('')}
       </div>
     </div>
   </div>`;
+}
+
+// ─── AULAS: exportar a Excel los inscriptos de las prácticas profesionalizantes ───
+// Una hoja por práctica: Inicial (mód. 11), Especializada 2° MI y Especializada 2° GRE.
+// Usa lo que está cargado en pantalla: elegí el período en el filtro de Aulas antes de exportar.
+function exportarPracticasExcel() {
+  const defs = [
+    { key: '11',     hoja: 'Práctica Inicial' },
+    { key: '19|MI',  hoja: 'Práctica Especializada MI' },
+    { key: '19|GRE', hoja: 'Práctica Especializada GRE' }
+  ];
+  const nombreCarrera = c => c === 'GRE' ? 'Generación y Redes Eléctricas' : c === 'MI' ? 'Mantenimiento Industrial' : (c || '');
+  const wb = XLSX.utils.book_new();
+  let total = 0;
+  defs.forEach(d => {
+    const vistos = new Set();
+    const filas = [];
+    (inscCursadoPorMod[d.key] || []).forEach(i => {
+      if (vistos.has(i.estudiante_id)) return;
+      vistos.add(i.estudiante_id);
+      const e = estudiantes.find(x => x.id === i.estudiante_id);
+      if (!e) return;
+      const partes = String(e.nombre || '').split(',');
+      const apellido = partes[0].trim();
+      const nombre = partes.slice(1).join(',').trim();
+      const dni = /^\d+$/.test(String(e.dni || '').trim()) ? Number(String(e.dni).trim()) : (e.dni || '');
+      filas.push([apellido, nombre, dni, nombreCarrera(e.carrera)]);
+    });
+    filas.sort((a, b) => a[0].localeCompare(b[0], 'es') || a[1].localeCompare(b[1], 'es'));
+    total += filas.length;
+    const ws = XLSX.utils.aoa_to_sheet([['Apellido', 'Nombre', 'DNI', 'Tecnicatura'], ...filas]);
+    ws['!cols'] = [{ wch: 24 }, { wch: 26 }, { wch: 12 }, { wch: 32 }];
+    XLSX.utils.book_append_sheet(wb, ws, d.hoja);
+  });
+  if (!total) {
+    alert('No hay inscriptos en las prácticas para el período elegido. Elegí el período en el filtro de Aulas y probá de nuevo.');
+    return;
+  }
+  XLSX.writeFile(wb, 'inscriptos_practicas_profesionalizantes.xlsx');
 }
 
 // ─── AULAS: agregar/quitar inscriptos a mano ────────────────────
