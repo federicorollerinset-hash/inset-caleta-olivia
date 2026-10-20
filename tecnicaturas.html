@@ -4960,6 +4960,7 @@ function renderAulaBoton({ key, mod, carrera, lista, nombreMat }) {
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${lista.length ? '8px' : '0'};">
         <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();abrirAgregarAula('${key}','${nombreMat.replace(/'/g,"\\'")}')">+ Agregar alumno</button>
         <button class="btn btn-success btn-sm" onclick="event.stopPropagation();abrirModalResultadosCursado('${key}','${nombreMat.replace(/'/g,"\\'")}')">Cargar resultados</button>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();exportarAulaExcel('${key}','${nombreMat.replace(/'/g,"\\'")}')">Exportar Excel</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;">
         ${lista.map(est => `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;font-size:12px;">
@@ -4969,6 +4970,35 @@ function renderAulaBoton({ key, mod, carrera, lista, nombreMat }) {
       </div>
     </div>
   </div>`;
+}
+
+// ─── AULAS: exportar a Excel un aula en particular ───
+// Apellido, Nombre, DNI y Tecnicatura de los inscriptos de esa materia (según el período elegido en el filtro).
+function exportarAulaExcel(key, nombreMat) {
+  const lista = inscCursadoPorMod[key] || [];
+  const nombreCarrera = c => c === 'GRE' ? 'Generación y Redes Eléctricas' : c === 'MI' ? 'Mantenimiento Industrial' : (c || '');
+  const vistos = new Set();
+  const filas = [];
+  lista.forEach(i => {
+    if (vistos.has(i.estudiante_id)) return;
+    vistos.add(i.estudiante_id);
+    const e = estudiantes.find(x => x.id === i.estudiante_id);
+    if (!e) return;
+    const partes = String(e.nombre || '').split(',');
+    const apellido = partes[0].trim();
+    const nombre = partes.slice(1).join(',').trim();
+    const dni = /^\d+$/.test(String(e.dni || '').trim()) ? Number(String(e.dni).trim()) : (e.dni || '');
+    filas.push([apellido, nombre, dni, nombreCarrera(e.carrera)]);
+  });
+  if (!filas.length) { alert('Esta aula no tiene inscriptos.'); return; }
+  filas.sort((a, b) => a[0].localeCompare(b[0], 'es') || a[1].localeCompare(b[1], 'es'));
+  const ws = XLSX.utils.aoa_to_sheet([['Apellido', 'Nombre', 'DNI', 'Tecnicatura'], ...filas]);
+  ws['!cols'] = [{ wch: 24 }, { wch: 26 }, { wch: 12 }, { wch: 32 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Inscriptos');
+  const tecn = key.split('|')[1];
+  const archivo = ('inscriptos_' + nombreMat + (tecn ? '_' + tecn : '')).replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]+/g, '_');
+  XLSX.writeFile(wb, archivo + '.xlsx');
 }
 
 // ─── AULAS: exportar a Excel los inscriptos de las prácticas profesionalizantes ───
