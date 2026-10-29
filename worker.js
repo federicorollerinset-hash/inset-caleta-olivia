@@ -1,0 +1,1206 @@
+// ============================================================
+// CALETA OLIVIA DIGITAL — Cloudflare Worker
+// Sirve el diario (assets estáticos), el endpoint de subida de
+// imágenes a R2, la pestaña /panoramasantacruz (ex "Apertura"),
+// que lee las portadas de los diarios de Santa Cruz del lado del
+// servidor y las muestra con la identidad visual del sitio, las
+// notas con URL propia (/nota/<titulo>) con sus meta tags para
+// Google/Facebook/WhatsApp, y el sitemap.xml.
+//
+// SEGURIDAD: todas las escrituras (login, notas, usuarios,
+// imágenes) pasan por acá y usan la SERVICE ROLE key de Supabase,
+// que nunca llega al navegador. El navegador solo tiene la key
+// pública (anon), que en Supabase quedó restringida a lectura de
+// notas publicadas — ver el bloque de políticas RLS al final de
+// este archivo (comentario) para aplicarlas en el SQL editor.
+// ============================================================
+
+const SOURCES = [
+  { id:'loa', name:'La Opinión Austral', short:'LOA', site:'https://laopinionaustral.com.ar', color:'#3949AB' },
+  { id:'ts',  name:'Tiempo Sur',          short:'TS',  site:'https://www.tiemposur.com.ar',   color:'#5C6BC0' },
+  { id:'dnd', name:'El Diario Nuevo Día', short:'DND', site:'https://www.eldiarionuevodia.com.ar', color:'#7986CB' },
+  { id:'ec',  name:'El Caletense',        short:'EC',  site:'https://elcaletense.net',         color:'#4E5BAA' }
+];
+
+const CATEGORIES = [
+  { id:'politica',   label:'Política',   keywords:['polític','gobierno','municipal','intendent','concejo deliberante','legislatura','diputad','senad','goberna','elecc','candidat','partido','ministr','presidente','provincial','concejal','milei'] },
+  { id:'economia',   label:'Economía',   keywords:['económic','economía','dólar','precio','inflación','impuesto','tarifa','salario','paritaria','empresa','comercio','producción','laboral','empleo','banco','aumento','jubilac'] },
+  { id:'policiales', label:'Policiales', keywords:['polic','detenido','robo','choque','accidente','homicidio','juicio','fiscal','delito','allanamiento','preso','condena','siniestro','femicidio','incendio','desaparecid','estafa'] },
+  { id:'cultura',    label:'Cultura',    keywords:['cultura','arte','música','teatro','cine','libro','festival','museo','exposición','artista','patrimonio'] },
+  { id:'deportes',   label:'Deportes',   keywords:['fútbol','deport','torneo','campeonato','liga','automovil','rugby','básquet','vóley'] },
+  { id:'actualidad', label:'Actualidad', keywords:[] }
+];
+
+const UA = 'Mozilla/5.0 (compatible; PanoramaBot/1.0; +https://workers.cloudflare.com)';
+
+const EXCLUDE_HREF = [
+  /\/seccion\//i, /\/autor\//i, /\/tags\//i, /\/radios?\//i, /\/radio-online/i,
+  /politica-de-privacidad/i, /publicidad/i, /contacto/i, /^mailto:/i, /^tel:/i,
+  /^javascript:/i, /^#/, /\.(jpg|jpeg|png|webp|gif|svg|pdf|mp3|mp4)$/i,
+  /facebook\.com|twitter\.com|x\.com|instagram\.com|youtube\.com|tiktok\.com|whatsapp\.com|t\.me|linkedin\.com|news\.google\.com/i
+];
+const MIN_TITLE_LEN = 25;
+const MAX_ITEMS_PER_SOURCE = 16;
+
+function categorize(title){
+  const text = title.toLowerCase();
+  for (const cat of CATEGORIES){
+    if (cat.keywords.length === 0) continue;
+    if (cat.keywords.some(kw => text.includes(kw))) return cat.id;
+  }
+  return 'actualidad';
+}
+
+function decodeEntities(str){
+  if (!str) return '';
+  return str
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
+function stripTags(str){
+  return decodeEntities((str || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')).trim();
+}
+
+function extractHeadlines(html, source){
+  const sHost = new URL(source.site).host.replace(/^www\./, '');
+  const seen = new Set();
+  const items = [];
+  const anchorRe = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = anchorRe.exec(html)) !== null){
+    if (items.length >= MAX_ITEMS_PER_SOURCE) break;
+    let href = m[1].trim();
+    if (!href) continue;
+    if (EXCLUDE_HREF.some(rx => rx.test(href))) continue;
+
+    if (href.startsWith('//')) href = 'https:' + href;
+    if (href.startsWith('/')) href = source.site.replace(/\/$/, '') + href;
+    if (!/^https?:\/\//i.test(href)) continue;
+
+    let u;
+    try { u = new URL(href); } catch(e){ continue; }
+    if (u.host.replace(/^www\./, '') !== sHost) continue;
+
+    const segments = u.pathname.split('/').filter(Boolean);
+    if (segments.length < 2) continue;
+
+    const title = stripTags(m[2]);
+    if (title.length < MIN_TITLE_LEN) continue;
+
+    const cleanUrl = u.origin + u.pathname;
+    if (seen.has(cleanUrl)) continue;
+    seen.add(cleanUrl);
+
+    items.push({ title, link: href, category: categorize(title) });
+  }
+  return items;
+}
+
+// Lee el HTML respetando la codificación real del sitio (algunos diarios usan
+// ISO-8859-1 y con res.text() las tildes y las ñ salían como "�").
+async function leerHtml(res){
+  const buf = await res.arrayBuffer();
+  const ct = res.headers.get('content-type') || '';
+  let cs = (ct.match(/charset=([\w-]+)/i) || [])[1];
+  if (!cs) {
+    const cabeza = new TextDecoder('latin1').decode(buf.slice(0, 3000));
+    cs = (cabeza.match(/charset=["']?([\w-]+)/i) || [])[1];
+  }
+  if (!cs) {
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (e) { return new TextDecoder('windows-1252').decode(buf); }
+  }
+  try { return new TextDecoder(cs.toLowerCase()).decode(buf); }
+  catch (e) { return new TextDecoder('utf-8').decode(buf); }
+}
+
+async function getSourceItems(source){
+  try{
+    const res = await fetch(source.site, { headers: { 'User-Agent': UA } });
+    if (!res.ok) return { ok:false, error: `HTTP ${res.status} al pedir la portada` };
+    const html = await leerHtml(res);
+    const items = extractHeadlines(html, source);
+    if (items.length === 0) return { ok:false, error: `portada leída (${html.length}b) pero sin titulares detectados` };
+    return { ok:true, items: items.map(i => ({ ...i, sourceId: source.id })) };
+  }catch(e){
+    return { ok:false, error: e.message || String(e) };
+  }
+}
+
+async function handlePanoramaApi(request, ctx){
+  const results = await Promise.all(SOURCES.map(async s => ({ source: s, ...(await getSourceItems(s)) })));
+
+  const items = results.flatMap(r => r.ok ? r.items : []);
+  const statuses = {};
+  results.forEach(r => { statuses[r.source.id] = r.ok ? { status:'ok' } : { status:'error', detail:r.error }; });
+
+  const body = JSON.stringify({ items, statuses, generatedAt: new Date().toISOString() });
+  return new Response(body, {
+    headers:{
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-store'
+    }
+  });
+}
+
+// ============================================================
+// Panorama renderizado en el servidor: los titulares viajan ya dentro del
+// HTML (con caché de 5 min), así Google los lee sin esperar al JavaScript.
+// El script de la página los reemplaza apenas carga la versión en vivo.
+// ============================================================
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function filasPanoramaSSR(items) {
+  const srcById = Object.fromEntries(SOURCES.map(s => [s.id, s]));
+  const catLabel = id => (CATEGORIES.find(c => c.id === id) || {}).label || id;
+  return items.slice(0, 60).map(item => {
+    const src = srcById[item.sourceId] || { short: '', color: '#57517A' };
+    return '<a class="item" href="' + escHtml(item.link) + '" target="_blank" rel="noopener">' +
+      '<div class="meta"><span class="src-tag" style="color:' + src.color + '">' + src.short + '</span>' +
+      '<span class="cat-tag">' + escHtml(catLabel(item.category)) + '</span></div>' +
+      '<span class="headline">' + escHtml(item.title) + '</span></a>';
+  }).join('');
+}
+
+async function handlePanoramaPagina(request, ctx) {
+  const cache = caches.default;
+  const cacheKey = new Request(new URL(request.url).origin + '/__panorama_html');
+  const guardado = await cache.match(cacheKey);
+  if (guardado) return guardado;
+
+  let filas = '';
+  try {
+    const limite = new Promise(resolve => setTimeout(() => resolve(null), 6000));
+    const cargar = (async () => {
+      const results = await Promise.all(SOURCES.map(async s => ({ source: s, ...(await getSourceItems(s)) })));
+      return results.flatMap(r => r.ok ? r.items : []);
+    })();
+    const items = await Promise.race([cargar, limite]);
+    if (items && items.length) filas = filasPanoramaSSR(items);
+  } catch (e) {}
+
+  const respaldo = '<div class="empty">Panorama Santa Cruz reúne los titulares de los principales medios de la provincia. ' +
+    'Mientras se actualizan, podés entrar directo a ' +
+    SOURCES.map(s => '<a href="' + s.site + '" target="_blank" rel="noopener">' + s.name + '</a>').join(', ') + '.</div>';
+
+  const html = PANORAMA_HTML.replace('<div id="feed"></div>', () => '<div id="feed">' + (filas || respaldo) + '</div>');
+  const resp = new Response(html, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300' }
+  });
+  if (filas) ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+  return resp;
+}
+
+const PANORAMA_HTML = `<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panorama Santa Cruz: portadas de los medios de la provincia · Caleta Olivia Digital</title>
+<meta name="description" content="Sección de Caleta Olivia Digital, diario digital de Caleta Olivia. Un panorama con las últimas noticias que publican los medios de Santa Cruz, con enlace a cada nota original.">
+<link rel="canonical" href="https://caletaoliviadigital.com.ar/panoramasantacruz">
+<meta name="robots" content="index,follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --indigo:#1D069A; --indigo-deep:#0B0442; --teal:#00B3B0;
+    --bg:#F8F7FC; --card:#FFFFFF; --ink:#14102B; --ink-soft:#57517A; --line:#E4E1F0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{ background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; line-height:1.5; min-height:100vh; }
+  a{color:inherit;text-decoration:none;}
+  img{max-width:100%;display:block;}
+  .play-tri{ display:inline-block; width:0;height:0; border-top:5px solid transparent; border-bottom:5px solid transparent; border-left:8px solid var(--teal); margin-right:8px; flex-shrink:0; }
+
+  header{ background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50; }
+  .header-top{ max-width:1180px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:14px 24px; gap:20px; }
+  .logo img{ height:52px; }
+  .clock{ font-size:13px; color:var(--ink-soft); white-space:nowrap; text-align:right; line-height:1.3; }
+  .clock strong{ font-family:'Space Grotesk',sans-serif; font-size:16px; color:var(--ink); }
+.buscador{
+  position:relative;
+  flex:1;
+  max-width:340px;
+}
+.buscador input{
+  width:100%;
+  padding:9px 14px 9px 38px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  font-size:13px;
+  font-family:'Inter',sans-serif;
+  background:var(--bg);
+  color:var(--ink);
+}
+.buscador input:focus{
+  outline:none; border-color:var(--indigo); background:var(--card);
+}
+.buscador svg{
+  position:absolute; left:13px; top:50%; transform:translateY(-50%);
+  width:15px; height:15px; stroke:var(--ink-soft); pointer-events:none;
+}
+.buscador .limpiar{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  font-size:16px; color:var(--ink-soft); cursor:pointer; display:none; line-height:1;
+}
+  /* --- clima --- */
+  .header-der{ display:flex; align-items:center; gap:18px; }
+  .clima{
+    display:flex; align-items:center; gap:8px;
+    font-family:'Space Grotesk',sans-serif; font-size:13px; color:var(--ink);
+    padding-right:18px; border-right:1px solid var(--line); white-space:nowrap;
+  }
+  .clima .clima-icono{ font-size:22px; line-height:1; }
+  .clima .clima-temp{ font-weight:700; font-size:18px; }
+  .clima .clima-det{ display:flex; flex-direction:column; line-height:1.2; font-size:11px; color:var(--ink-soft); }
+  .clima .clima-det b{ color:var(--ink); font-weight:600; font-size:12px; }
+  @media (max-width:560px){
+    .header-der{ width:100%; justify-content:space-between; gap:10px; }
+    .clima{ padding-right:10px; }
+    .clima .clima-det{ display:none; }
+  }
+  
+  .fecha-hoy{ font-size:13px; color:var(--ink-soft); white-space:nowrap; }
+  .nav-cats{ max-width:1180px; margin:0 auto; padding:0 24px; display:flex; gap:2px; overflow-x:auto; border-top:1px solid var(--line); scrollbar-width:none; }
+  .nav-cats::-webkit-scrollbar{ display:none; }
+  .nav-cats a{ white-space:nowrap; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13px; color:var(--ink-soft); padding:11px 14px; border-bottom:2px solid transparent; }
+  .nav-cats a:hover{ color:var(--indigo); }
+  .nav-cats a.activa{ color:var(--indigo); border-bottom-color:var(--indigo); }
+
+  .contenedor{ max-width:900px; margin:0 auto; padding:32px 24px 0; }
+  .titulo-pagina{ font-family:'Space Grotesk',sans-serif; font-size:24px; font-weight:700; display:flex; align-items:center; border-bottom:2px solid var(--indigo); padding-bottom:8px; margin-bottom:6px; }
+  .subtitulo{ font-size:14px; color:var(--ink-soft); margin-bottom:20px; }
+
+  .filterbar{ background:var(--card); border:1px solid var(--line); border-radius:4px; padding:14px 16px; margin-bottom:20px; }
+  .toolbar{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .toolbar.categories{ border-top:1px solid var(--line); margin-top:10px; padding-top:10px; }
+  .toolbar-label{ font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--indigo); margin-right:6px; }
+  .pill{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:12px; padding:6px 13px; border-radius:20px; border:1px solid var(--line); background:var(--bg); color:var(--ink-soft); cursor:pointer; transition:all .15s; }
+  .pill .sw{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+  .pill:hover{ color:var(--indigo); border-color:var(--indigo); }
+  .pill.active{ background:var(--indigo); border-color:var(--indigo); color:#fff; }
+  .toolbar-spacer{ flex:1; }
+  #refresh-btn{ font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:12px; padding:6px 14px; border-radius:20px; border:none; background:var(--teal); color:#fff; cursor:pointer; }
+  #refresh-btn:disabled{ opacity:.5; cursor:default; }
+  #last-update{ font-size:12px; color:var(--ink-soft); margin-top:10px; }
+
+  main{ max-width:900px; margin:0 auto; padding:0 24px 64px; }
+  #feed{ background:var(--card); border:1px solid var(--line); border-radius:4px; }
+  .item{ display:block; padding:16px 20px; border-bottom:1px solid var(--line); transition:background .15s; }
+  .item:last-child{ border-bottom:none; }
+  .item:hover{ background:#F3F1FC; }
+  .item .meta{ display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
+  .src-tag{ font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; }
+  .cat-tag{ font-family:'Space Grotesk',sans-serif; font-size:10px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--indigo); background:#EEECF9; padding:3px 9px; border-radius:3px; }
+  .headline{ font-family:'Source Serif 4',serif; font-weight:700; font-size:19px; line-height:1.3; color:var(--ink); display:block; }
+  .item:hover .headline{ color:var(--indigo); }
+  .empty, .error-row{ font-size:13px; color:var(--ink-soft); padding:18px 20px; line-height:1.6; }
+  .error-row{ border-top:1px solid var(--line); }
+  .error-row a{ color:var(--indigo); font-weight:600; }
+  footer{ background:var(--indigo-deep); color:rgba(255,255,255,.7); padding:28px 24px; font-size:13px; text-align:center; }
+
+  @media (max-width:560px){
+    .header-top{ padding:10px 14px; }
+    .logo img{ height:42px; }
+    .clock{ font-size:11px; }
+    .nav-cats{ padding:0 8px; }
+    .contenedor{ padding:20px 14px 0; }
+    main{ padding:0 14px 48px; }
+    .titulo-pagina{ font-size:20px; }
+    .headline{ font-size:17px; }
+    .item{ padding:14px 14px; }
+  }
+
+  /* menú de secciones azul */
+  .nav-bar{ background:var(--indigo); }
+  .nav-cats{ border-top:none; }
+  .nav-cats a{ color:#fff; border-bottom:3px solid transparent; transition:background .15s; }
+  .nav-cats a:hover{ color:#fff; background:rgba(255,255,255,.14); }
+  .nav-cats a.activa{ color:#fff; border-bottom-color:#fff; }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-top">
+    <a href="/" class="logo"><img src="/logo.png" alt="Caleta Olivia Digital"></a>
+    <div class="buscador">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" id="buscador-input" placeholder="Buscar titulares...">
+      <span class="limpiar" id="buscador-limpiar">✕</span>
+    </div>
+    <div class="header-der">
+      <div class="clima" id="clima" style="display:none;"></div>
+      <div class="fecha-hoy" id="clock-date"></div>
+    </div>
+  </div>
+  <div class="nav-bar">
+  <nav class="nav-cats" aria-label="Secciones">
+    <a href="/">Inicio</a>
+    <a href="/panoramasantacruz" class="activa">Panorama Santa Cruz</a>
+  </nav>
+  </div>
+</header>
+<div class="contenedor">
+  <h1 class="titulo-pagina"><span class="play-tri"></span>Panorama Santa Cruz</h1>
+  <p class="subtitulo">Los titulares de los diarios de la provincia, en un solo lugar.</p>
+  <div class="filterbar">
+    <div class="toolbar" id="toolbar-src"></div>
+    <div class="toolbar categories" id="toolbar-cat"></div>
+    <div id="last-update">Cargando titulares…</div>
+  </div>
+</div>
+<main id="feed-wrap"><div id="feed"></div></main>
+<footer>Fuentes: La Opinión Austral · Tiempo Sur · El Diario Nuevo Día · El Caletense — lee directo de portada, actualiza cada 10 min</footer>
+<script>
+const SOURCES = ${JSON.stringify(SOURCES)};
+const CATEGORIES = ${JSON.stringify(CATEGORIES.map(c => ({ id:c.id, label:c.label })))};
+const AUTO_REFRESH_MS = 10 * 60 * 1000;
+let allItems = [];
+let statuses = {};
+let activeSourceFilter = 'all';
+let activeCatFilter = 'all';
+let textoBusqueda = '';
+const normalizar = t => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+function updateClock(){
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const h = new Date();
+  document.getElementById('clock-date').textContent = dias[h.getDay()].charAt(0).toUpperCase() + dias[h.getDay()].slice(1) + ' ' + h.getDate() + ' de ' + meses[h.getMonth()] + ' de ' + h.getFullYear();
+}
+updateClock();
+setInterval(updateClock, 15000);
+const inputBuscar = document.getElementById('buscador-input');
+const btnLimpiar = document.getElementById('buscador-limpiar');
+inputBuscar.addEventListener('input', () => {
+  textoBusqueda = normalizar(inputBuscar.value.trim());
+  btnLimpiar.style.display = inputBuscar.value ? 'block' : 'none';
+  render();
+});
+btnLimpiar.addEventListener('click', () => { inputBuscar.value = ''; textoBusqueda = ''; btnLimpiar.style.display = 'none'; render(); inputBuscar.focus(); });
+  /* ---------- CLIMA (Open-Meteo, sin clave) ---------- */
+  async function cargarClima(){
+    const box = document.getElementById('clima');
+    if(!box) return;
+    const wmo = c => {
+      if(c === 0) return ['☀️','Despejado'];
+      if(c <= 2) return ['⛅','Parcialmente nublado'];
+      if(c === 3) return ['☁️','Nublado'];
+      if(c === 45 || c === 48) return ['🌫️','Niebla'];
+      if(c >= 51 && c <= 57) return ['🌦️','Llovizna'];
+      if(c >= 61 && c <= 67) return ['🌧️','Lluvia'];
+      if(c >= 71 && c <= 77) return ['🌨️','Nieve'];
+      if(c >= 80 && c <= 82) return ['🌦️','Chubascos'];
+      if(c === 85 || c === 86) return ['🌨️','Nevadas'];
+      if(c >= 95) return ['⛈️','Tormenta'];
+      return ['🌡️','—'];
+    };
+    try{
+      let d = null;
+      try{ const g = JSON.parse(sessionStorage.getItem('clima_co') || 'null'); if(g && Date.now() - g.t < 15*60*1000) d = g.d; }catch(e){}
+      if(!d){
+        const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=-46.44&longitude=-67.52&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=America%2FArgentina%2FBuenos_Aires&forecast_days=1');
+        if(!r.ok) throw new Error('clima ' + r.status);
+        d = await r.json();
+        try{ sessionStorage.setItem('clima_co', JSON.stringify({ t: Date.now(), d })); }catch(e){}
+      }
+      const [icono, texto] = wmo(d.current.weather_code);
+      const temp = Math.round(d.current.temperature_2m);
+      const max = Math.round(d.daily.temperature_2m_max[0]);
+      const min = Math.round(d.daily.temperature_2m_min[0]);
+      const viento = Math.round(d.current.wind_speed_10m);
+      box.innerHTML = '<span class="clima-icono" title="'+texto+'">'+icono+'</span>' +
+        '<span class="clima-temp">'+temp+'°</span>' +
+        '<span class="clima-det"><b>Caleta Olivia</b><span>'+texto+' · Máx '+max+'° Mín '+min+'° · Viento '+viento+' km/h</span></span>';
+      box.style.display = 'flex';
+    }catch(e){ console.error('Clima:', e); box.style.display = 'none'; }
+  }
+  cargarClima();
+
+
+
+function buildToolbars(){
+  const srcBar = document.getElementById('toolbar-src');
+  srcBar.innerHTML = '<span class="toolbar-label">Diario</span>';
+  const allSrc = document.createElement('button');
+  allSrc.className = 'pill active'; allSrc.textContent = 'Todas';
+  allSrc.onclick = () => setSourceFilter('all', allSrc);
+  srcBar.appendChild(allSrc);
+  SOURCES.forEach(s => {
+    const p = document.createElement('button');
+    p.className = 'pill'; p.dataset.src = s.id;
+    p.innerHTML = '<span class="sw" style="background:' + s.color + '"></span>' + s.short;
+    p.onclick = () => setSourceFilter(s.id, p);
+    srcBar.appendChild(p);
+  });
+  const spacer = document.createElement('div'); spacer.className = 'toolbar-spacer'; srcBar.appendChild(spacer);
+  const btn = document.createElement('button'); btn.id = 'refresh-btn'; btn.textContent = '↻ Actualizar';
+  btn.onclick = () => loadAll(); srcBar.appendChild(btn);
+
+  const catBar = document.getElementById('toolbar-cat');
+  catBar.innerHTML = '<span class="toolbar-label">Sección</span>';
+  const allCat = document.createElement('button');
+  allCat.className = 'pill active'; allCat.textContent = 'Todas';
+  allCat.onclick = () => setCatFilter('all', allCat);
+  catBar.appendChild(allCat);
+  CATEGORIES.forEach(c => {
+    const p = document.createElement('button');
+    p.className = 'pill'; p.dataset.cat = c.id; p.textContent = c.label;
+    p.onclick = () => setCatFilter(c.id, p);
+    catBar.appendChild(p);
+  });
+}
+function setSourceFilter(id, el){ activeSourceFilter = id; document.querySelectorAll('#toolbar-src .pill').forEach(p => p.classList.remove('active')); el.classList.add('active'); render(); }
+function setCatFilter(id, el){ activeCatFilter = id; document.querySelectorAll('#toolbar-cat .pill').forEach(p => p.classList.remove('active')); el.classList.add('active'); render(); }
+
+function render(){
+  const feedEl = document.getElementById('feed');
+  feedEl.innerHTML = '';
+  const srcById = Object.fromEntries(SOURCES.map(s => [s.id, s]));
+  const catLabel = id => (CATEGORIES.find(c => c.id === id) || {}).label || id;
+
+  const items = allItems
+    .filter(i => activeSourceFilter === 'all' || i.sourceId === activeSourceFilter)
+    .filter(i => activeCatFilter === 'all' || i.category === activeCatFilter)
+    .filter(i => !textoBusqueda || normalizar(i.title).includes(textoBusqueda));
+
+  if (items.length === 0){
+    const div = document.createElement('div'); div.className = 'empty';
+    div.textContent = 'Sin titulares para mostrar con este filtro.';
+    feedEl.appendChild(div);
+  }
+
+  items.forEach(item => {
+    const src = srcById[item.sourceId];
+    const row = document.createElement('a');
+    row.href = item.link; row.target = '_blank'; row.rel = 'noopener'; row.className = 'item';
+    row.innerHTML = '<div class="meta">' +
+      '<span class="src-tag" style="color:' + src.color + '">' + src.short + '</span>' +
+      '<span class="cat-tag">' + catLabel(item.category) + '</span></div>' +
+      '<span class="headline">' + item.title + '</span>';
+    feedEl.appendChild(row);
+  });
+
+  const failed = SOURCES.filter(s => statuses[s.id] && statuses[s.id].status === 'error');
+  if (failed.length){
+    const div = document.createElement('div'); div.className = 'error-row';
+    div.innerHTML = 'No se pudieron cargar ahora: ' + failed.map(s => '<a href="' + s.site + '" target="_blank">' + s.name + '</a>').join(', ') +
+      '<br>Detalle: ' + failed.map(s => s.short + ' — ' + statuses[s.id].detail).join(' · ');
+    feedEl.appendChild(div);
+  }
+}
+
+async function loadAll(){
+  const btn = document.getElementById('refresh-btn');
+  if (btn){ btn.disabled = true; btn.textContent = 'Actualizando…'; }
+  document.getElementById('last-update').textContent = 'Buscando titulares…';
+  try{
+    const res = await fetch('/api/panorama-noticias', { cache:'no-store' });
+    const data = await res.json();
+    allItems = data.items;
+    statuses = data.statuses;
+    const okCount = Object.values(statuses).filter(v => v.status === 'ok').length;
+    document.getElementById('last-update').textContent =
+      'Última actualización: ' + new Date(data.generatedAt).toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}) +
+      ' — ' + allItems.length + ' titulares de ' + okCount + '/' + SOURCES.length + ' diarios';
+  }catch(e){
+    document.getElementById('last-update').textContent = 'Error al conectar con el servidor: ' + e.message;
+  }
+  render();
+  if (btn){ btn.disabled = false; btn.textContent = '↻ Actualizar'; }
+}
+
+buildToolbars();
+loadAll();
+setInterval(loadAll, AUTO_REFRESH_MS);
+</script>
+</body>
+</html>`;
+
+// ============================================================
+// NOTAS CON URL PROPIA (SLUG) + SEO
+// Las notas se abren en caletaoliviadigital.com.ar/nota/<titulo-de-la-nota>
+// en vez de /nota?id=<código largo>.
+//
+// Acá se hace todo lo que tiene que ver con buscadores y redes:
+//  - /nota/<slug> sirve nota.html con título, descripción, imagen,
+//    URL canónica y datos estructurados (NewsArticle) ya puestos en
+//    el HTML, porque Google/Facebook/WhatsApp no esperan al JS.
+//  - los links viejos (/nota?id=...) redirigen (301) a la URL nueva.
+//  - /sitemap.xml se arma solo con las notas publicadas.
+//
+// Esto usa el anon key porque solo LEE notas publicadas, algo
+// que sigue siendo público a propósito.
+// ============================================================
+
+const SUPABASE_URL = 'https://rmbutukkldktjknvhizj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_HJbQIiqaB6MGWnfTq0GlHw_dDO7tbAe';
+const SITE_NAME = 'Caleta Olivia Digital';
+
+function escapeAttr(str) {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// "Intendente anunció obras en Güemes y Rivadavia" -> "intendente-anuncio-obras-en-guemes-y-rivadavia"
+function slugify(texto, max = 70) {
+  let s = (texto || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' y ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (s.length > max) {
+    s = s.slice(0, max);
+    const ult = s.lastIndexOf('-');
+    if (ult > 30) s = s.slice(0, ult); // corta en una palabra entera
+    s = s.replace(/-+$/, '');
+  }
+  return s || 'nota';
+}
+
+// devuelve un slug que no esté usado por otra nota (agrega -2, -3... si hace falta)
+async function generarSlugUnico(env, titulo, idExcluir) {
+  const base = slugify(titulo);
+  let candidato = base;
+  for (let i = 2; i < 50; i++) {
+    let path = `notas?slug=eq.${encodeURIComponent(candidato)}&select=id`;
+    if (idExcluir) path += `&id=neq.${idExcluir}`;
+    const res = await sbService(env, path);
+    const filas = res.ok ? await res.json() : [];
+    if (!filas.length) return candidato;
+    candidato = `${base}-${i}`;
+  }
+  return `${base}-${Date.now().toString(36)}`;
+}
+
+// Lee una nota publicada. Devuelve la nota, null si no existe, o false si Supabase falló.
+async function obtenerNotaPublica({ slug, id }) {
+  const filtro = slug ? `slug=eq.${encodeURIComponent(slug)}` : `id=eq.${encodeURIComponent(id)}`;
+  const campos = 'id,titulo,bajada,cuerpo,imagen_url,slug,categoria,autor_nombre,publicada_at,created_at,updated_at';
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/notas?${filtro}&estado=eq.publicada&select=${campos}&limit=1`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    if (res.status === 400) return null; // id con formato inválido
+    if (!res.ok) return false;
+    const rows = await res.json();
+    return rows[0] || null;
+  } catch (e) {
+    return false;
+  }
+}
+
+// El HTML de la página de nota, tal como está en los assets (según la config puede
+// estar como /nota o /nota.html; se prueba una y después la otra).
+async function obtenerPaginaNota(env, url) {
+  for (const ruta of ['/nota', '/nota.html']) {
+    const r = await env.ASSETS.fetch(new Request(new URL(ruta, url.origin).toString()));
+    if (r.status === 200) return r;
+  }
+  return null;
+}
+
+// saca los códigos [yt]...[/yt], [link]..., [b], etc. del cuerpo para armar una descripción limpia
+function textoPlanoDeCuerpo(cuerpo) {
+  return (cuerpo || '')
+    .replace(/\[(yt|fb|tw|img)\][\s\S]*?\[\/\1\]/gi, ' ')
+    .replace(/\[link\][^|\]]*\|?([\s\S]*?)\[\/link\]/gi, '$1')
+    .replace(/\[\/?(b|u|mark)\]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function recortar(texto, max) {
+  if (texto.length <= max) return texto;
+  const corte = texto.slice(0, max);
+  return corte.slice(0, corte.lastIndexOf(' ') > 80 ? corte.lastIndexOf(' ') : max).trim() + '…';
+}
+
+function armarMetaNota(nota, url) {
+  const canonica = nota.slug
+    ? `${url.origin}/nota/${nota.slug}`
+    : `${url.origin}/nota?id=${nota.id}`;
+  const tituloPlano = nota.titulo || SITE_NAME;
+  const descripcionPlana = nota.bajada && nota.bajada.trim()
+    ? recortar(nota.bajada.trim(), 200)
+    : (recortar(textoPlanoDeCuerpo(nota.cuerpo), 160) || 'Noticias de Caleta Olivia y Santa Cruz.');
+
+  const titulo = escapeAttr(tituloPlano);
+  const descripcion = escapeAttr(descripcionPlana);
+  const urlAttr = escapeAttr(canonica);
+  const publicada = nota.publicada_at || nota.created_at;
+  const modificada = nota.updated_at || publicada;
+
+  let tags = `<title>${titulo} — ${SITE_NAME}</title>
+<meta name="description" content="${descripcion}">
+<link rel="canonical" href="${urlAttr}">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="es_AR">
+<meta property="og:title" content="${titulo}">
+<meta property="og:description" content="${descripcion}">
+<meta property="og:url" content="${urlAttr}">
+<meta property="og:site_name" content="${SITE_NAME}">
+<meta property="article:published_time" content="${escapeAttr(publicada || '')}">
+<meta property="article:modified_time" content="${escapeAttr(modificada || '')}">
+<meta property="article:section" content="${escapeAttr(nota.categoria || '')}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${titulo}">
+<meta name="twitter:description" content="${descripcion}">
+`;
+  if (nota.imagen_url) {
+    const imagen = escapeAttr(nota.imagen_url);
+    tags += `<meta property="og:image" content="${imagen}">\n<meta name="twitter:image" content="${imagen}">\n`;
+    } else {
+    const fallback = `${url.origin}/og-image.png`;
+    tags += `<meta property="og:image" content="${fallback}">\n<meta name="twitter:image" content="${fallback}">\n`;
+  }
+
+  const esRedaccion = !nota.autor_nombre || /^redacci[oó]n$/i.test(nota.autor_nombre.trim());
+  const datos = {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: tituloPlano.slice(0, 110),
+    description: descripcionPlana,
+    image: nota.imagen_url ? [nota.imagen_url] : undefined,
+    datePublished: publicada || undefined,
+    dateModified: modificada || undefined,
+    articleSection: nota.categoria || undefined,
+    inLanguage: 'es-AR',
+    author: esRedaccion
+      ? { '@type': 'Organization', name: SITE_NAME }
+      : { '@type': 'Person', name: nota.autor_nombre },
+    publisher: { '@type': 'Organization', name: SITE_NAME },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': canonica }
+  };
+  tags += `<script type="application/ld+json">${JSON.stringify(datos).replace(/</g, '\\u003c')}</script>\n`;
+  return tags;
+}
+
+async function responderPaginaNota(env, url, nota, status = 200) {
+  const pagina = await obtenerPaginaNota(env, url);
+  if (!pagina) return new Response('Página no disponible', { status: 500 });
+  let html = await pagina.text();
+
+  if (nota) {
+    html = html.replace(/<title>[\s\S]*?<\/title>/, () => armarMetaNota(nota, url));
+  } else if (status === 404) {
+    html = html.replace('</head>', '<meta name="robots" content="noindex">\n</head>');
+  }
+
+  const headers = new Headers(pagina.headers);
+  headers.delete('content-length');
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  return new Response(html, { status, headers });
+}
+
+// /nota/<slug>
+async function handleNotaSlug(request, env, url, slugCrudo) {
+  let slug;
+  try { slug = decodeURIComponent(slugCrudo); } catch (e) { slug = slugCrudo; }
+  const nota = await obtenerNotaPublica({ slug });
+  if (nota === false) return responderPaginaNota(env, url, null, 200); // falló Supabase: que cargue por JS
+  if (!nota) return responderPaginaNota(env, url, null, 404);          // no existe: 404 real para buscadores
+  return responderPaginaNota(env, url, nota, 200);
+}
+
+// /nota?id=... y /nota.html?id=... (links viejos): redirigen a la URL con título
+async function handleNotaLegacy(request, env, url) {
+  const id = url.searchParams.get('id');
+  if (!id) return env.ASSETS.fetch(request);
+  const nota = await obtenerNotaPublica({ id });
+  if (nota && nota.slug) return Response.redirect(`${url.origin}/nota/${nota.slug}`, 301);
+  if (nota) return responderPaginaNota(env, url, nota, 200); // nota sin slug todavía
+  return env.ASSETS.fetch(request);
+}
+
+async function handleSitemap(env, url) {
+  let filas = [];
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/notas?estado=eq.publicada&slug=not.is.null&select=slug,publicada_at,created_at,updated_at&order=publicada_at.desc.nullslast&limit=1000`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+    );
+    if (res.ok) filas = await res.json();
+  } catch (e) {}
+
+  const fecha = f => (f ? `<lastmod>${new Date(f).toISOString()}</lastmod>` : '');
+  const urls = [
+    `<url><loc>${url.origin}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>`,
+    `<url><loc>${url.origin}/panoramasantacruz</loc><changefreq>hourly</changefreq><priority>0.5</priority></url>`,
+    ...filas.map(n => `<url><loc>${url.origin}/nota/${n.slug}</loc>${fecha(n.updated_at || n.publicada_at || n.created_at)}</url>`)
+  ];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
+  return new Response(xml, {
+    headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=900' }
+  });
+}
+
+function handleRobots(url) {
+  return new Response(`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${url.origin}/sitemap.xml\n`, {
+    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }
+  });
+}
+
+// ============================================================
+// AUTENTICACIÓN Y ESCRITURAS PROTEGIDAS
+// A partir de acá: login, sesiones firmadas, y todos los
+// endpoints que crean/editan/borran datos. Todos usan
+// env.SUPABASE_SERVICE_KEY (secreto de Cloudflare, nunca en el
+// código ni en el navegador) para hablar con Supabase saltando
+// RLS del lado del servidor, después de validar el permiso acá.
+// ============================================================
+
+function jsonResponse(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' }
+  });
+}
+
+function toBase64Url(bytes) {
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function fromBase64Url(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  const bin = atob(str);
+  return new Uint8Array([...bin].map(c => c.charCodeAt(0)));
+}
+
+async function hmacFirmar(secreto, texto) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secreto), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(texto));
+  return toBase64Url(new Uint8Array(sig));
+}
+
+// token de sesión: <payload en base64url>.<firma hmac>, vence a los 7 días
+async function crearToken(env, payload) {
+  const cuerpo = { ...payload, exp: Date.now() + 1000 * 60 * 60 * 24 * 7 };
+  const payloadB64 = toBase64Url(new TextEncoder().encode(JSON.stringify(cuerpo)));
+  const firma = await hmacFirmar(env.SESSION_SECRET, payloadB64);
+  return `${payloadB64}.${firma}`;
+}
+
+async function verificarToken(env, token) {
+  if (!token) return null;
+  const partes = token.split('.');
+  if (partes.length !== 2) return null;
+  const [payloadB64, firma] = partes;
+  const firmaEsperada = await hmacFirmar(env.SESSION_SECRET, payloadB64);
+  if (firma !== firmaEsperada) return null;
+  let payload;
+  try { payload = JSON.parse(new TextDecoder().decode(fromBase64Url(payloadB64))); }
+  catch (e) { return null; }
+  if (!payload.exp || payload.exp < Date.now()) return null;
+  return payload;
+}
+
+function getBearerToken(request) {
+  const h = request.headers.get('Authorization') || '';
+  const m = h.match(/^Bearer (.+)$/);
+  return m ? m[1] : null;
+}
+
+async function requireSesion(request, env) {
+  return verificarToken(env, getBearerToken(request));
+}
+
+// Habla con Supabase usando la service role key (bypassa RLS) — solo se llama server-side
+async function sbService(env, path, options = {}) {
+  const headers = {
+    apikey: env.SUPABASE_SERVICE_KEY,
+    // OJO: las keys nuevas de Supabase (sb_secret_...) NO van en Authorization,
+    // solo en apikey — si se manda también ahí, Supabase la rechaza como "Invalid API key".
+    'Content-Type': 'application/json',
+    Prefer: options.prefer || 'return=representation',
+    ...(options.headers || {})
+  };
+  return fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...options, headers });
+}
+
+// si esta nota va a ocupar un lugar destacado, la que estaba ahí pasa a "regular" (server-side)
+async function liberarPosicionServer(env, posicion, idAExcluir) {
+  if (posicion === 'regular') return;
+  let path = `notas?posicion=eq.${posicion}&estado=eq.publicada`;
+  if (idAExcluir) path += `&id=neq.${idAExcluir}`;
+  await sbService(env, path, { method: 'PATCH', body: JSON.stringify({ posicion: 'regular' }), prefer: 'return=minimal' });
+}
+
+async function handleApi(request, env, url) {
+  const { pathname } = url;
+  const metodo = request.method;
+
+  // ---------- LOGIN ----------
+  if (pathname === '/api/login' && metodo === 'POST') {
+    const { email, password } = await request.json().catch(() => ({}));
+    if (!email || !password) return jsonResponse({ error: 'Completá email y contraseña.' }, 400);
+
+    // 1) Validar email+contraseña contra Supabase Auth (usa la key pública, no la service key)
+    const authRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.toLowerCase(), password })
+    });
+    if (!authRes.ok) return jsonResponse({ error: 'Email o contraseña incorrectos.' }, 401);
+    const authData = await authRes.json();
+    const accessToken = authData.access_token;
+    const authUser = authData.user;
+    if (!accessToken || !authUser) return jsonResponse({ error: 'Email o contraseña incorrectos.' }, 401);
+
+    // 2) Traer el perfil (nombre, rol, activo) — con el token del propio usuario, respeta RLS
+    const perfilRes = await fetch(`${SUPABASE_URL}/rest/v1/perfiles?id=eq.${authUser.id}&select=*`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` }
+    });
+    const perfiles = await perfilRes.json().catch(() => []);
+    const perfil = Array.isArray(perfiles) ? perfiles[0] : null;
+    if (!perfil || perfil.activo === false) {
+      return jsonResponse({ error: 'Tu cuenta todavía no tiene perfil asignado. Avisá a un administrador.' }, 403);
+    }
+
+    const usuario = { id: authUser.id, email: authUser.email, nombre: perfil.nombre, rol: perfil.rol };
+    const token = await crearToken(env, usuario);
+    return jsonResponse({ token, user: usuario });
+  }
+
+  // ---------- OLVIDÉ MI CONTRASEÑA: pide a Supabase que mande el mail ----------
+  if (pathname === '/api/recuperar-clave' && metodo === 'POST') {
+    const { email } = await request.json().catch(() => ({}));
+    if (email) {
+      // el link vuelve acá mismo (panel.html), con #access_token=...&type=recovery en el hash
+      const redirectTo = `${url.origin}/panel.html`;
+      await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase(), options: { redirect_to: redirectTo } })
+      }).catch(() => {});
+    }
+    // siempre respondemos igual, exista o no el email, para no filtrar qué mails están registrados
+    return jsonResponse({ ok: true });
+  }
+
+  // ---------- CONFIRMAR NUEVA CONTRASEÑA (viene del link del mail) ----------
+  if (pathname === '/api/actualizar-clave' && metodo === 'POST') {
+    const { access_token, password } = await request.json().catch(() => ({}));
+    if (!access_token || !password || password.length < 8) {
+      return jsonResponse({ error: 'Faltan datos o la contraseña es muy corta.' }, 400);
+    }
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ password })
+    });
+    if (!res.ok) {
+      return jsonResponse({ error: 'El link venció o no es válido. Pedí uno nuevo.' }, 400);
+    }
+    return jsonResponse({ ok: true });
+  }
+
+  // ---------- SUBIR IMAGEN (requiere sesión) ----------
+  if (pathname === '/api/subir-imagen' && metodo === 'POST') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion) return jsonResponse({ error: 'No autorizado.' }, 401);
+    try {
+      const formData = await request.formData();
+      const file = formData.get('file');
+      if (!file) return jsonResponse({ error: 'No se envió ningún archivo' }, 400);
+
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const nombreArchivo = `notas/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+      await env.IMAGENES.put(nombreArchivo, file.stream(), { httpMetadata: { contentType: file.type || 'image/jpeg' } });
+      const urlPublica = `https://pub-2f0378f77190435e86bc93accabc379c.r2.dev/${nombreArchivo}`;
+
+      // registrar en el banco de imágenes reutilizables
+      await sbService(env, 'imagenes', {
+        method: 'POST',
+        prefer: 'return=minimal',
+        body: JSON.stringify({ url: urlPublica, nombre_archivo: file.name, subida_por: sesion.nombre })
+      });
+
+      return jsonResponse({ url: urlPublica });
+    } catch (err) {
+      return jsonResponse({ error: 'Error al subir la imagen: ' + err.message }, 500);
+    }
+  }
+
+  // ---------- GALERÍA DE IMÁGENES (requiere sesión) ----------
+  if (pathname === '/api/imagenes' && metodo === 'GET') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion) return jsonResponse({ error: 'No autorizado.' }, 401);
+    const res = await sbService(env, 'imagenes?select=*&order=created_at.desc&limit=40');
+    return jsonResponse({ data: await res.json() });
+  }
+
+  // ---------- MIS NOTAS (propias, incluye borradores) ----------
+  if (pathname === '/api/mis-notas' && metodo === 'GET') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion) return jsonResponse({ error: 'No autorizado.' }, 401);
+    const res = await sbService(env, `notas?autor_id=eq.${sesion.id}&select=*&order=created_at.desc`);
+    return jsonResponse({ data: await res.json() });
+  }
+
+  // ---------- UNA NOTA PUNTUAL (para editar) ----------
+  if (pathname.startsWith('/api/notas/') && metodo === 'GET') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion) return jsonResponse({ error: 'No autorizado.' }, 401);
+    const id = pathname.split('/').pop();
+    const res = await sbService(env, `notas?id=eq.${id}&select=*`);
+    const filas = await res.json();
+    if (!filas[0]) return jsonResponse({ error: 'No encontrada.' }, 404);
+    if (sesion.rol === 'redactor' && filas[0].autor_id !== sesion.id) return jsonResponse({ error: 'No podés editar esta nota.' }, 403);
+    return jsonResponse({ data: filas[0] });
+  }
+
+  // ---------- CREAR NOTA ----------
+  if (pathname === '/api/notas' && metodo === 'POST') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion) return jsonResponse({ error: 'No autorizado.' }, 401);
+    const datos = await request.json().catch(() => null);
+    if (!datos) return jsonResponse({ error: 'Datos inválidos.' }, 400);
+
+    if (datos.estado === 'publicada' && datos.posicion && datos.posicion !== 'regular') {
+      await liberarPosicionServer(env, datos.posicion, null);
+    }
+    datos.autor_id = sesion.id;
+    delete datos.slug; // el slug nunca viene del navegador: lo genera el servidor
+    if (datos.estado === 'publicada') {
+      datos.slug = await generarSlugUnico(env, datos.titulo, null);
+    }
+
+    const res = await sbService(env, 'notas', { method: 'POST', body: JSON.stringify(datos) });
+    if (!res.ok) return jsonResponse({ error: 'No se pudo crear la nota.' }, 500);
+    const filas = await res.json();
+    return jsonResponse({ data: filas[0] });
+  }
+
+  // ---------- EDITAR / BORRAR NOTA ----------
+  if (pathname.startsWith('/api/notas/') && (metodo === 'PUT' || metodo === 'DELETE')) {
+    const sesion = await requireSesion(request, env);
+    if (!sesion) return jsonResponse({ error: 'No autorizado.' }, 401);
+    const id = pathname.split('/').pop();
+
+    // se busca la nota actual una sola vez: sirve para chequear permiso de
+    // redactor y, si corresponde, completar la fecha de publicación
+    const actualRes = await sbService(env, `notas?id=eq.${id}&select=autor_id,publicada_at,slug,titulo,estado`);
+    const actualFilas = await actualRes.json();
+    if (!actualFilas[0]) return jsonResponse({ error: 'No se encontró la nota.' }, 404);
+    if (sesion.rol === 'redactor' && actualFilas[0].autor_id !== sesion.id) {
+      return jsonResponse({ error: 'No tenés permiso sobre esta nota.' }, 403);
+    }
+
+    if (metodo === 'DELETE') {
+      const res = await sbService(env, `notas?id=eq.${id}`, { method: 'DELETE' });
+      if (!res.ok) return jsonResponse({ error: 'No se pudo borrar la nota.' }, 500);
+      return jsonResponse({ ok: true });
+    }
+
+    const datos = await request.json().catch(() => null);
+    if (!datos) return jsonResponse({ error: 'Datos inválidos.' }, 400);
+    delete datos.autor_id; // nunca se cambia el autor desde el cliente
+    delete datos.slug;     // el slug lo maneja el servidor
+
+    // la nota recibe su URL la primera vez que queda publicada; después NO cambia
+    // aunque se edite el título, para no romper links ya compartidos
+    const estadoFinal = datos.estado || actualFilas[0].estado;
+    if (estadoFinal === 'publicada' && !actualFilas[0].slug) {
+      datos.slug = await generarSlugUnico(env, datos.titulo || actualFilas[0].titulo, id);
+    }
+
+    if (datos.estado === 'publicada' && !actualFilas[0].publicada_at) {
+      datos.publicada_at = new Date().toISOString();
+    }
+    if (datos.posicion && datos.posicion !== 'regular') {
+      await liberarPosicionServer(env, datos.posicion, id);
+    }
+
+    const res = await sbService(env, `notas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify(datos), prefer: 'return=minimal' });
+    if (!res.ok) return jsonResponse({ error: 'No se pudo editar la nota.' }, 500);
+    return jsonResponse({ ok: true });
+  }
+
+  // ---------- SUMAR UNA VISTA (público, sin sesión — solo suma 1) ----------
+  if (pathname.startsWith('/api/vista/') && metodo === 'POST') {
+    const id = pathname.split('/').pop();
+    const res = await sbService(env, `notas?id=eq.${id}&estado=eq.publicada&select=vistas`);
+    const filas = await res.json();
+    if (!filas[0]) return jsonResponse({ ok: false }, 404);
+    const nuevasVistas = (filas[0].vistas || 0) + 1;
+    await sbService(env, `notas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ vistas: nuevasVistas }), prefer: 'return=minimal' });
+    // registro por día para las estadísticas de visitas (si falla, no afecta el contador de la nota)
+    try {
+      await sbService(env, 'rpc/sumar_vista_dia', { method: 'POST', body: JSON.stringify({ p_nota: String(id) }), prefer: 'return=minimal' });
+    } catch (e) { console.error('sumar_vista_dia:', e); }
+    return jsonResponse({ ok: true });
+  }
+
+  // ---------- VISITAS POR DÍA (admin y editor) — el panel las agrupa por semana y por mes ----------
+  if (pathname === '/api/estadisticas/visitas' && metodo === 'GET') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion) return jsonResponse({ error: 'No autorizado.' }, 401);
+    if (sesion.rol === 'redactor') return jsonResponse({ error: 'No autorizado.' }, 403);
+    const dias = Math.min(Math.max(parseInt(url.searchParams.get('dias') || '365', 10) || 365, 1), 730);
+    const desde = new Date(Date.now() - dias * 86400000).toISOString().slice(0, 10);
+    const res = await sbService(env, 'rpc/vistas_por_dia', { method: 'POST', body: JSON.stringify({ p_desde: desde }) });
+    if (!res.ok) return jsonResponse({ error: 'No se pudieron leer las visitas.' }, 500);
+    return jsonResponse({ ok: true, dias: await res.json() });
+  }
+
+  // ---------- USUARIOS (solo admin) ----------
+  if (pathname === '/api/usuarios' && metodo === 'GET') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion || sesion.rol !== 'admin') return jsonResponse({ error: 'No autorizado.' }, 403);
+    const res = await sbService(env, 'usuarios?select=*&order=created_at');
+    const data = await res.json();
+    data.forEach(u => delete u.password_hash);
+    return jsonResponse({ data });
+  }
+
+  if (pathname === '/api/usuarios' && metodo === 'POST') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion || sesion.rol !== 'admin') return jsonResponse({ error: 'No autorizado.' }, 403);
+    const datos = await request.json().catch(() => null);
+    if (!datos) return jsonResponse({ error: 'Datos inválidos.' }, 400);
+
+    const res = await sbService(env, 'usuarios', { method: 'POST', body: JSON.stringify(datos) });
+    if (!res.ok) {
+      const texto = await res.text();
+      const dup = texto.includes('duplicate');
+      return jsonResponse({ error: dup ? 'Ya existe un usuario con ese email.' : 'No se pudo crear el usuario.' }, 500);
+    }
+    const filas = await res.json();
+    if (filas[0]) delete filas[0].password_hash;
+    return jsonResponse({ data: filas[0] });
+  }
+
+  // ---------- ENCUESTAS (admin y editor) ----------
+  if (pathname === '/api/encuestas' && metodo === 'GET') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion || sesion.rol === 'redactor') return jsonResponse({ error: 'No autorizado.' }, 403);
+    const res = await sbService(env, 'encuestas?select=*,encuesta_opciones(*)&order=creada.desc&limit=30');
+    const data = await res.json();
+    if (Array.isArray(data)) data.forEach(e => (e.encuesta_opciones || []).sort((a, b) => a.orden - b.orden));
+    return jsonResponse({ data });
+  }
+
+  if (pathname === '/api/encuestas' && metodo === 'POST') {
+    const sesion = await requireSesion(request, env);
+    if (!sesion || sesion.rol === 'redactor') return jsonResponse({ error: 'No autorizado.' }, 403);
+    const datos = await request.json().catch(() => null);
+    const pregunta = datos && String(datos.pregunta || '').trim();
+    const opciones = datos && Array.isArray(datos.opciones)
+      ? datos.opciones.filter(o => o && String(o.texto || '').trim()).slice(0, 6) : [];
+    if (!pregunta || opciones.length < 2) return jsonResponse({ error: 'Escribí la pregunta y al menos 2 opciones.' }, 400);
+
+    // solo una encuesta activa a la vez
+    await sbService(env, 'encuestas?activa=eq.true', { method: 'PATCH', body: JSON.stringify({ activa: false }), prefer: 'return=minimal' });
+    const res = await sbService(env, 'encuestas', { method: 'POST', body: JSON.stringify({ pregunta, activa: true }) });
+    if (!res.ok) return jsonResponse({ error: 'No se pudo crear la encuesta.' }, 500);
+    const enc = (await res.json())[0];
+    const filas = opciones.map((o, i) => ({
+      encuesta_id: enc.id, texto: String(o.texto).trim(), orden: i + 1, foto: o.foto ? String(o.foto) : null
+    }));
+    const resOp = await sbService(env, 'encuesta_opciones', { method: 'POST', body: JSON.stringify(filas), prefer: 'return=minimal' });
+    if (!resOp.ok) return jsonResponse({ error: 'Se creó la encuesta pero fallaron las opciones.' }, 500);
+    return jsonResponse({ data: enc });
+  }
+
+  if (pathname.startsWith('/api/encuestas/') && (metodo === 'PUT' || metodo === 'DELETE')) {
+    const sesion = await requireSesion(request, env);
+    if (!sesion || sesion.rol === 'redactor') return jsonResponse({ error: 'No autorizado.' }, 403);
+    const id = pathname.split('/').pop();
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return jsonResponse({ error: 'ID inválido.' }, 400);
+    if (metodo === 'DELETE') {
+      await sbService(env, `encuestas?id=eq.${id}`, { method: 'DELETE', prefer: 'return=minimal' });
+      return jsonResponse({ ok: true });
+    }
+    const datos = await request.json().catch(() => null);
+    if (!datos || typeof datos.activa !== 'boolean') return jsonResponse({ error: 'Datos inválidos.' }, 400);
+    if (datos.activa) {
+      await sbService(env, 'encuestas?activa=eq.true', { method: 'PATCH', body: JSON.stringify({ activa: false }), prefer: 'return=minimal' });
+    }
+    await sbService(env, `encuestas?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ activa: datos.activa }), prefer: 'return=minimal' });
+    return jsonResponse({ ok: true });
+  }
+
+  return null; // no es una ruta de /api que manejemos acá
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    if (url.pathname.startsWith('/api/')) {
+      const respuestaApi = await handleApi(request, env, url);
+      if (respuestaApi) return respuestaApi;
+    }
+
+    if (url.pathname === '/panoramasantacruz') {
+      return handlePanoramaPagina(request, ctx);
+    }
+
+    if (url.pathname === '/api/panorama-noticias') {
+      return handlePanoramaApi(request, ctx);
+    }
+
+    const mNota = url.pathname.match(/^\/nota\/([^\/]+)\/?$/);
+    if (mNota) {
+      return handleNotaSlug(request, env, url, mNota[1]);
+    }
+
+    if (url.pathname === '/nota' || url.pathname === '/nota.html') {
+      return handleNotaLegacy(request, env, url);
+    }
+
+    if (url.pathname === '/sitemap.xml') {
+      return handleSitemap(env, url);
+    }
+
+    if (url.pathname === '/robots.txt') {
+      return handleRobots(url);
+    }
+
+    // verificación de propiedad de Google Search Console (no borrar)
+    if (url.pathname === '/google7e9d151ffbf81a5e.html') {
+      return new Response('google-site-verification: google7e9d151ffbf81a5e.html', {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' }
+      });
+    }
+
+    return env.ASSETS.fetch(request);
+  }
+};
+
+// ============================================================
+// PENDIENTE DE CONFIGURAR EN CLOUDFLARE (una sola vez):
+//
+// npx wrangler secret put SUPABASE_SERVICE_KEY
+//   → pegar la "service_role" key de Supabase (Project Settings
+//     → API → service_role secret). NUNCA la anon/publishable.
+//
+// npx wrangler secret put SESSION_SECRET
+//   → pegar cualquier cadena larga y aleatoria (ej: generada con
+//     `openssl rand -hex 32`). Se usa para firmar las sesiones.
+//
+// Y en Supabase (SQL editor) hay que cerrar el acceso directo
+// del anon key — ver notas aparte.
+// ============================================================
