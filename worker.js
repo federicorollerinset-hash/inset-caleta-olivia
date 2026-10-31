@@ -1040,11 +1040,6 @@ async function handleApi(request, env, url) {
 
   // ---------- SUMAR UNA VISTA (público, sin sesión — solo suma 1) ----------
   if (pathname.startsWith('/api/vista/') && metodo === 'POST') {
-    // no cuenta robots conocidos (buscadores, vistas previas de redes, monitoreo, scripts)
-    const ua = request.headers.get('User-Agent') || '';
-    if (!ua || /bot|crawl|spider|slurp|facebookexternalhit|facebot|whatsapp|telegram|lighthouse|headless|python-requests|curl\/|wget|axios|node-fetch|go-http-client|uptime|monitor|pingdom/i.test(ua)) {
-      return jsonResponse({ ok: true, contada: false });
-    }
     const id = pathname.split('/').pop();
     const res = await sbService(env, `notas?id=eq.${id}&estado=eq.publicada&select=vistas`);
     const filas = await res.json();
@@ -1068,29 +1063,6 @@ async function handleApi(request, env, url) {
     const res = await sbService(env, 'rpc/vistas_por_dia', { method: 'POST', body: JSON.stringify({ p_desde: desde }) });
     if (!res.ok) return jsonResponse({ error: 'No se pudieron leer las visitas.' }, 500);
     return jsonResponse({ ok: true, dias: await res.json() });
-  }
-
-  // ---------- LAS 3 NOTAS MÁS LEÍDAS DEL DÍA (admin y editor) ----------
-  if (pathname === '/api/estadisticas/top-dia' && metodo === 'GET') {
-    const sesion = await requireSesion(request, env);
-    if (!sesion) return jsonResponse({ error: 'No autorizado.' }, 401);
-    if (sesion.rol === 'redactor') return jsonResponse({ error: 'No autorizado.' }, 403);
-    // "hoy" según la hora de Argentina (UTC-3), igual que el registro diario
-    const hoy = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
-    const res = await sbService(env, `vistas_dia?fecha=eq.${hoy}&select=nota_id,vistas&order=vistas.desc&limit=10`);
-    if (!res.ok) return jsonResponse({ error: 'No se pudieron leer las notas más leídas.' }, 500);
-    const filas = await res.json();
-    const ids = filas.map(f => f.nota_id).filter(id => /^[0-9a-f-]{36}$/i.test(id));
-    const datos = {};
-    if (ids.length) {
-      const rn = await sbService(env, `notas?id=in.(${ids.join(',')})&estado=eq.publicada&select=id,titulo,slug`);
-      if (rn.ok) (await rn.json()).forEach(n => { datos[n.id] = n; });
-    }
-    const notas = filas
-      .filter(f => datos[f.nota_id])
-      .slice(0, 3)
-      .map(f => ({ id: f.nota_id, titulo: datos[f.nota_id].titulo, slug: datos[f.nota_id].slug, vistas: f.vistas }));
-    return jsonResponse({ ok: true, fecha: hoy, notas });
   }
 
   // ---------- USUARIOS (solo admin) ----------
