@@ -2728,7 +2728,7 @@ function renderEstudiantes() {
     const cardCls = estEst === 'inactivo' ? 'student-card est-inactivo' : estEst === 'egresado' ? 'student-card est-egresado' : 'student-card';
     // Materias que está cursando actualmente: inscripto a cursado y todavía sin resultado (registro) cargado
     const cursandoMods = inscripcionesCursado
-      .filter(i => i.estudianteId === e.id && !registros.some(r => r.estudianteId === e.id && r.mod === i.mod))
+      .filter(i => i.estudianteId === e.id && !i.resultado && !registros.some(r => r.estudianteId === e.id && r.mod === i.mod))
       .map(i => i.mod);
     const cursandoCount = new Set(cursandoMods).size;
     const cursandoHtml = cursandoCount
@@ -3096,7 +3096,7 @@ function verTrayectoria(id) {
   const segundoMods = (est.carrera==='GRE'?PLAN_GRE:PLAN_MI).map(m=>m.mod);
 
   const cursandoMods = inscripcionesCursado
-    .filter(i => i.estudianteId === id && !regs.some(r => r.mod === i.mod))
+    .filter(i => i.estudianteId === id && !i.resultado && !regs.some(r => r.mod === i.mod))
     .map(i => i.mod);
 
   function estadoMateria(m) {
@@ -5558,7 +5558,7 @@ async function abrirModalResultadosCursado(key, nombreMat) {
   const mod = parseInt(key.split('|')[0]);
 
   const alumnos = lista
-    .map(i => { const e = estudiantes.find(x=>x.id===i.estudiante_id); return e ? { ...e, periodoId: i.periodo_id } : null; })
+    .map(i => { const e = estudiantes.find(x=>x.id===i.estudiante_id); return e ? { ...e, periodoId: i.periodo_id, inscId: i.id, inscResultado: i.resultado || '' } : null; })
     .filter(Boolean)
     .sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'));
 
@@ -5576,15 +5576,16 @@ async function abrirModalResultadosCursado(key, nombreMat) {
   const ex = registros.find(r => r.estudianteId === a.id && r.mod === mod);
   const esReg = !!ex && ex.estado === 'regular';
   const esApr = !!ex && ex.estado === 'aprobada';
+  const resIns = (!esReg && !esApr) ? (a.inscResultado || '') : '';
   return `
     <tr style="border-top:1px solid var(--border)">
-      <td style="padding:6px 10px;font-size:13px;">${a.nombre} <span class="badge ${a.carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${a.carrera}</span>${esReg ? ' <span class="badge badge-success" style="font-size:9px;padding:1px 5px;">ya cargado</span>' : ''}</td>
+      <td style="padding:6px 10px;font-size:13px;">${a.nombre} <span class="badge ${a.carrera==='GRE'?'badge-info':'badge-warning'}" style="font-size:9px;padding:1px 5px;">${a.carrera}</span>${(esReg || resIns) ? ' <span class="badge badge-success" style="font-size:9px;padding:1px 5px;">ya cargado</span>' : ''}</td>
       <td style="padding:6px 10px;">
-        <select data-est="${a.id}" class="rc-estado" data-orig="${esReg ? 'regular' : ''}" ${esApr ? 'disabled' : ''} style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;">
+        <select data-est="${a.id}" class="rc-estado" data-insc="${a.inscId}" data-orig="${esReg ? 'regular' : resIns}" ${esApr ? 'disabled' : ''} style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;">
           <option value="">${esApr ? 'Final aprobado' : '— Sin definir —'}</option>
           <option value="regular"${esReg ? ' selected' : ''}>Regular</option>
-          <option value="no_regular">No regular</option>
-          <option value="ausente">Ausente</option>
+          <option value="no_regular"${resIns === 'no_regular' ? ' selected' : ''}>No regular</option>
+          <option value="ausente"${resIns === 'ausente' ? ' selected' : ''}>Ausente</option>
         </select>
       </td>
     </tr>`;
@@ -5600,7 +5601,7 @@ async function abrirModalResultadosCursado(key, nombreMat) {
         <div id="rc-titulo" style="font-size:15px;font-weight:500;"></div>
         <button onclick="document.getElementById('modal-resultados-cursado').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text3);">×</button>
       </div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">Solo se guardan los marcados como Regular. Los que ya figuran como Regular aparecen marcados ("ya cargado") y no se vuelven a guardar. No regular y Ausente no modifican nada.</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">Regular guarda la regularidad. No regular y Ausente dejan la cursada cerrada: la materia deja de figurar como \"Cursando\". Los que dicen \"ya cargado\" no se vuelven a guardar.</div>
       <div style="display:flex;gap:10px;margin-bottom:14px;">
         <div class="form-group" style="flex:1;margin-bottom:0;">
           <label style="font-size:11px;">Fecha de cursado *</label>
@@ -5636,17 +5637,26 @@ async function abrirModalResultadosCursado(key, nombreMat) {
 async function guardarResultadosCursado() {
   const modal = document.getElementById('modal-resultados-cursado');
   const mod = parseInt(modal.dataset.mod);
+  const key = modal.dataset.key;
   const fecha = document.getElementById('rc-fecha').value;
   const cuatri = document.getElementById('rc-cuatrimestre').value;
   if (!fecha) { alert('Ingresá la fecha de cursado.'); return; }
 
-  const filas = [...modal.querySelectorAll('.rc-estado')];
-  const marcados = filas.filter(s => s.value === 'regular');
-  const regulares = marcados.filter(s => s.dataset.orig !== 'regular');
-  if (!marcados.length) { alert('No marcaste a nadie como Regular.'); return; }
-  if (!regulares.length) { alert('Todos los marcados como Regular ya estaban cargados. No hay nada nuevo para guardar.'); return; }
+  // Solo lo que cambió respecto de lo que ya estaba cargado
+  const filas = [...modal.querySelectorAll('.rc-estado')].filter(s => !s.disabled);
+  const cambios = filas.filter(s => s.value && s.value !== (s.dataset.orig || ''));
+  const regulares = cambios.filter(s => s.value === 'regular');
+  const cerrados = cambios.filter(s => (s.value === 'no_regular' || s.value === 'ausente') && s.dataset.orig !== 'regular');
+  const bloqueados = cambios.filter(s => (s.value === 'no_regular' || s.value === 'ausente') && s.dataset.orig === 'regular').length;
+  if (!regulares.length && !cerrados.length) {
+    alert(bloqueados
+      ? 'Esos alumnos ya figuran como Regular. Para cambiar una regularidad usá la edición del alumno.'
+      : 'No hay nada nuevo para guardar. Los que dicen "ya cargado" no se vuelven a guardar.');
+    return;
+  }
 
   const yaAprobados = [];
+  let guardadosReg = 0;
   mostrarCargando(true);
   try {
     for (const sel of regulares) {
@@ -5658,9 +5668,23 @@ async function guardarResultadosCursado() {
       const nuevo = { ...res[0], estudianteId: res[0].estudiante_id };
       const idx = registros.findIndex(r=>r.estudianteId===nuevo.estudianteId && r.mod===nuevo.mod);
       if (idx >= 0) registros[idx] = { ...registros[idx], ...nuevo }; else registros.push(nuevo);
+      guardadosReg++;
     }
-    let msg = `${regulares.length - yaAprobados.length} regularidad${(regulares.length-yaAprobados.length)!==1?'es':''} guardada${(regulares.length-yaAprobados.length)!==1?'s':''}`;
-    if (yaAprobados.length) msg += ` (${yaAprobados.length} ya tenía final aprobado, no se tocó)`;
+    // No regular / Ausente: se marca la inscripción como cerrada (no se crea ningún registro académico)
+    for (const sel of cerrados) {
+      const inscId = sel.dataset.insc;
+      await sbPatchExtra('inscripciones_cursado', `id=eq.${inscId}`, { resultado: sel.value });
+      const enMemoria = inscripcionesCursado.find(i => String(i.id) === String(inscId));
+      if (enMemoria) enMemoria.resultado = sel.value;
+      const enLista = (inscCursadoPorMod[key] || []).find(i => String(i.id) === String(inscId));
+      if (enLista) enLista.resultado = sel.value;
+    }
+    const partes = [];
+    if (guardadosReg) partes.push(`${guardadosReg} regularidad${guardadosReg!==1?'es':''}`);
+    if (cerrados.length) partes.push(`${cerrados.length} cursada${cerrados.length!==1?'s':''} cerrada${cerrados.length!==1?'s':''} (no regular/ausente)`);
+    let msg = (partes.join(' y ') || 'Sin cambios') + ' guardada(s)';
+    if (yaAprobados.length) msg += ` · ${yaAprobados.length} ya tenía final aprobado, no se tocó`;
+    if (bloqueados) msg += ` · ${bloqueados} ya figuraban Regular, no se modificaron`;
     showToast(msg);
     modal.style.display = 'none';
     updateSidebar();
